@@ -1,6 +1,0 @@
-node_modules/
-dist/
-*.tsbuildinfo
-.sites-runtime/
-.sites-checkout/
-site-package.tar.gz
