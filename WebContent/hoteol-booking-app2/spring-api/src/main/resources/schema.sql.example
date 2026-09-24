@@ -1,0 +1,40 @@
+-- MariaDB 10.6+; apply manually to an empty jeju_stay database.
+CREATE TABLE stay (
+ id BIGINT PRIMARY KEY AUTO_INCREMENT,
+ name VARCHAR(150) NOT NULL,
+ region VARCHAR(40) NOT NULL,
+ stay_type VARCHAR(40) NOT NULL,
+ address_sido VARCHAR(40) NOT NULL DEFAULT '제주특별자치도',
+ address VARCHAR(255) NOT NULL,
+ base_price DECIMAL(12,0) NOT NULL,
+ thumbnail_url VARCHAR(1000) NOT NULL,
+ description VARCHAR(500) NOT NULL DEFAULT '',
+ nearby VARCHAR(100) NOT NULL DEFAULT '',
+ active BOOLEAN NOT NULL DEFAULT TRUE,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_stay_region_type (region,stay_type)
+);
+CREATE TABLE stay_image (
+ id BIGINT PRIMARY KEY AUTO_INCREMENT,
+ stay_id BIGINT NOT NULL,
+ image_url VARCHAR(1000) NOT NULL,
+ sort_order INT NOT NULL DEFAULT 0,
+ FOREIGN KEY (stay_id) REFERENCES stay(id),
+ INDEX idx_stay_image_stay (stay_id,sort_order)
+);
+CREATE TABLE reservation (
+ id BIGINT PRIMARY KEY AUTO_INCREMENT,
+ reservation_code VARCHAR(40) NOT NULL UNIQUE,
+ stay_id BIGINT NOT NULL,
+ check_in DATE NOT NULL,
+ check_out DATE NOT NULL,
+ guests INT NOT NULL,
+ guest_name VARCHAR(80) NOT NULL,
+ phone VARCHAR(20) NOT NULL,
+ nightly_base_price DECIMAL(12,0) NOT NULL,
+ status VARCHAR(20) NOT NULL DEFAULT 'REQUESTED',
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY (stay_id) REFERENCES stay(id),
+ INDEX idx_reservation_stay_dates (stay_id,check_in,check_out,status),
+ CONSTRAINT chk_reservation_dates CHECK (check_out > check_in)
+);

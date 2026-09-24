@@ -1,17 +1,15 @@
+import { BrowserRouter, Routes, Route} from "react-router-dom";
 import './App.css';
-import ApiTest from './components/ApiTest';
+import {HomePage} from "./pages/HomePage.tsx";
 
 function App() {
     return (
-        <div className="App">
-            {/* 개발/연동 확인용 컴포넌트 (추후 주석 처리하거나 제거) */}
-            <ApiTest />
-
-            <header style={{ textAlign: 'center', marginTop: '40px' }}>
-                <h1>제주 호텔 예약 시스템</h1>
-                <p>숙소 목록 및 검색 기능이 이곳에 구성됩니다.</p>
-            </header>
-        </div>
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={<HomePage />} />
+                {/* 차후 <Route path="/stays/:id" element={<StayDetailPage />} /> 상세페이지, 넘어갈 페이지 추가 */}
+            </Routes>
+        </BrowserRouter>
     );
 }
 
