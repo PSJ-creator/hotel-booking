@@ -1,0 +1,23 @@
+/* 숙소 카드 이미지 영역 */
+.stay-photo {
+    width: 100%;
+    aspect-ratio: 16 / 10;     /* 또는 4 / 3 (원하는 카드 이미지 비율로 고정) */
+    height: 220px;             /* 고정 높이 지정 (aspect-ratio 대신 고정 높이를 쓰고 싶을 때) */
+    background-size: cover;    /* 이미지가 찌그러지지 않고 영역을 꽉 채우도록 설정 */
+    background-position: center center; /* 사진의 중심부가 오도록 정렬 */
+    background-repeat: no-repeat;
+    border: none;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    position: relative;
+    cursor: pointer;
+    display: block;
+    overflow: hidden;
+    padding: 0;
+}
+
+/* 기존 CSS에 있던 crop- 관련 강제 위치 이동 클래스가 있다면 주석 처리하거나 제거 */
+.crop-0, .crop-1, .crop-2 {
+    background-position: center center !important;
+    background-size: cover !important;
+}
