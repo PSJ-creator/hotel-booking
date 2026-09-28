@@ -28,13 +28,20 @@ export function useReservation(apiOnline: boolean) {
       return;
     }
     if (!apiOnline) {
-      setFeedback('현재 예약 접수를 준비 중입니다. 실제 숙소와 가격이 등록된 뒤 예약할 수 있습니다.');
+      setFeedback('현재 예약 접수를 준비 중입니다.');
       return;
     }
     setSubmitting(true);
     setFeedback('');
     try {
-      const booking: Booking = { stayId: selected.id, checkIn, checkOut, guests, guestName, phone };
+      const booking: Booking = {
+        contentId: selected.contentId, // 수정: contentId 바인딩
+        checkIn,
+        checkOut,
+        guests,
+        guestName,
+        phone
+      };
       const data = await createReservation(booking);
       setFeedback(`예약 요청이 접수되었습니다. 예약번호: ${data.reservationCode || data.id}`);
     } catch (error) {

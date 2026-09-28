@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { fetchStays } from '../api/stays';
-import { sample } from '../data/stays';
+import { useEffect, useState } from 'react';
+import { fetchStays } from '../data/stays';
 import type { Stay } from '../types/stay';
 
 export function useStays() {
@@ -8,24 +7,32 @@ export function useStays() {
   const [type, setType] = useState('전체 숙박');
   const [query, setQuery] = useState('');
   const [term, setTerm] = useState('');
-  const [stays, setStays] = useState<Stay[]>(sample);
+  const [stays, setStays] = useState<Stay[]>([]);
   const [apiOnline, setApiOnline] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // 선택된 지역, 유형, 검색어가 바뀔 때마다 스프링 API 호출
   useEffect(() => {
     let active = true;
-    fetchStays()
-      .then(data => { if (active) { setStays(data); setApiOnline(true); } })
-      .catch(() => {}) // Keep the labeled sample catalog while Spring is unavailable.
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, []);
+    setLoading(true);
 
-  const result = useMemo(() => stays.filter(stay =>
-    (region === '전체 지역' || stay.region === region) &&
-    (type === '전체 숙박' || stay.type === type) &&
-    (!term || `${stay.name} ${stay.region} ${stay.address} ${stay.nearby}`.toLowerCase().includes(term.toLowerCase()))
-  ), [stays, region, type, term]);
+    fetchStays(region, type, term)
+        .then(data => {
+          if (active) {
+            setStays(data);
+            setApiOnline(true);
+          }
+        })
+        .catch((err) => {
+          console.error('숙소 로딩 실패:', err);
+          if (active) setApiOnline(false);
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+
+    return () => { active = false; };
+  }, [region, type, term]);
 
   const selectRegion = (value: string) => {
     setRegion(value);
@@ -37,5 +44,17 @@ export function useStays() {
     document.getElementById('stays')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  return { region, setRegion, type, setType, query, setQuery, result, loading, apiOnline, selectRegion, search };
+  return {
+    region,
+    setRegion,
+    type,
+    setType,
+    query,
+    setQuery,
+    result: stays,
+    loading,
+    apiOnline,
+    selectRegion,
+    search,
+  };
 }
