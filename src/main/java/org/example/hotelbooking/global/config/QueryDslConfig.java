@@ -12,7 +12,7 @@ public class QueryDslConfig {
     @PersistenceContext
     private EntityManager entityManager;
 
-    // 💡 스프링아, 앞으로 JPAQueryFactory가 필요하면 이 메서드를 실행해서 가져다 쓰렴!
+    // JPAQueryFactory가 필요하면 이 메서드를 실행해서 가져다 쓰렴!
     @Bean
     public JPAQueryFactory jpaQueryFactory() {
         return new JPAQueryFactory(entityManager);
