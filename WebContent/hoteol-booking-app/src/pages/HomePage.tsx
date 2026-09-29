@@ -5,13 +5,27 @@ import {
     MapPin,
     Menu,
     Search,
+    User,
+    ChevronDown,
+    Heart,
+    Map,
+    CalendarCheck,
+    Settings,
+    LogOut,
+    Home,
+    MessageSquare,
+    ShieldAlert,
+    Users,
+    FileCheck
 } from "lucide-react";
 import {BookingModal} from "../components/BookingModal";
 import {useHeroSlider} from "../hooks/useHeroSlider";
 import {useReservation} from "../hooks/useReservation";
 import {useStays} from "../hooks/useStays";
 import {destinations, money, regions, types, getLodgingTypeName} from "../data/stays";
-import {useState, useEffect} from 'react'; // useState, useEffect 확인
+import {useState, useEffect, useRef} from 'react';
+import {Link, useNavigate} from "react-router-dom";
+import { Footer } from "../components/Footer";
 
 const heroTitles = [
     "제주에 머무는 시간,\n여행이 되다",
@@ -20,6 +34,7 @@ const heroTitles = [
 ];
 
 export function HomePage() {
+    const navigate = useNavigate();
     const {
         region,
         setRegion,
@@ -34,21 +49,89 @@ export function HomePage() {
         search,
     } = useStays();
 
-    // [추가] 화면에 보여줄 개수 상태 (기본 20개)
-    const [visibleCount, setVisibleCount] = useState(20);
+    // 화면에 보여줄 숙소 개수 (기본 20개)
+    const [visibleCount, setVisibleCount] = useState(18);
 
-    // [추가] 지역/숙박유형/검색 필터가 변경되면 다시 20개로 초기화
+    // 로그인 상태 관리 및 드롭다운 상태
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [userName, setUserName] = useState("내 계정");
+    const [userRole, setUserRole] = useState("ROLE_USER"); //
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // 로그인 여부 및 토큰 기반 닉네임 파싱
+// HomePage.tsx의 useEffect 내부
     useEffect(() => {
-        setVisibleCount(20);
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+            setIsLoggedIn(true);
+            try {
+                // 한글 깨짐 방지 base64 디코딩
+                const base64Payload = token.split('.')[1];
+                const decodedPayload = JSON.parse(
+                    decodeURIComponent(
+                        atob(base64Payload)
+                            .split('')
+                            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                            .join('')
+                    )
+                );
+                // 이름(Name) 설정
+                if (decodedPayload.name) {
+                    setUserName(decodedPayload.name);
+                } else if (decodedPayload.sub) {
+                    setUserName(decodedPayload.sub.split('@')[0]);
+                }
+                // 권한(ROLE) 설정
+                if (decodedPayload.role) {
+                    setUserRole(decodedPayload.role);
+                }
+            } catch {
+                setUserName("Unknown");
+            }
+        } else {
+            setIsLoggedIn(false);
+        }
+    }, []);
+
+    // 드롭다운 외부 클릭 시 닫기
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // 로그아웃 핸들러
+    const handleLogout = () => {
+        localStorage.removeItem('accessToken');
+        setIsLoggedIn(false);
+        setIsDropdownOpen(false);
+        alert('로그아웃되었습니다.');
+        navigate('/');
+    };
+
+    // 더미 메뉴 클릭 안내
+    const handleDummyClick = (menuName: string) => {
+        alert(`[${menuName}] 기능은 준비 중입니다.`);
+        setIsDropdownOpen(false);
+    };
+
+    useEffect(() => {
+        setVisibleCount(18);
     }, [region, type, query]);
 
-    // [추가] 더보기 클릭 시 20개씩 증가
     const handleLoadMore = () => {
-        setVisibleCount((prev) => prev + 20);
+        setVisibleCount((prev) => prev + 18);
     };
+
     const {slide, previous, next} = useHeroSlider();
     const reservation = useReservation(apiOnline);
     const {open} = reservation;
+
     return (
         <>
             <header className="header">
@@ -56,19 +139,212 @@ export function HomePage() {
                     <a className="brand" href="#top" aria-label="제주 야호 홈">
                         <img className="brand-mark" src="/favicon.png" alt="제주 야호 심볼"/>
                         <span>
-              제주 야호<small>JEJU YA-HO</small>
-            </span>
+                            제주 야호<small>JEJU YA-HO</small>
+                        </span>
                     </a>
                     <nav className="nav-links">
                         <a href="#destinations">추천 여행지</a>
                         <a href="#stays">숙소 찾기</a>
                         <a href="#about">서비스 안내</a>
                     </nav>
-                    <a className="nav-cta" href="#stays">
-                        제주 숙소 둘러보기 <ArrowRight size={16}/>
-                    </a>
+
+                    {/* 우측 영역: 숙소 둘러보기 + 로그인/프로필 영역 */}
+                    <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                        <a className="nav-cta" href="#stays">
+                            제주 숙소 둘러보기 <ArrowRight size={16}/>
+                        </a>
+
+                        {/*로그인된 상태: 유저 드롭다운 메뉴 */}
+                        {isLoggedIn ? (
+                            <div style={{position: 'relative'}} ref={dropdownRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDropdownOpen((prev) => !prev)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '6px 14px',
+                                        backgroundColor: '#ffffff',
+                                        border: '1.5px solid #123f4d',
+                                        borderRadius: '24px',
+                                        cursor: 'pointer',
+                                        color: '#123f4d',
+                                        fontWeight: 600,
+                                        fontSize: '14px',
+                                    }}
+                                >
+                                    <div style={{
+                                        width: '26px',
+                                        height: '26px',
+                                        borderRadius: '50%',
+                                        backgroundColor: '#123f4d',
+                                        color: '#ffffff',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <User size={16}/>
+                                    </div>
+                                    <span>{userName}</span>
+
+                                    {/* 💡 권한별 뱃지 표시 */}
+                                    {userRole === 'ROLE_HOST' && (
+                                        <span style={{
+                                            fontSize: '11px',
+                                            backgroundColor: '#e6f4ea',
+                                            color: '#137333',
+                                            padding: '2px 7px',
+                                            borderRadius: '10px',
+                                            fontWeight: 500
+                                        }}>
+                    숙소관리자(파트너)
+                </span>
+                                    )}
+                                    {userRole === 'ROLE_ADMIN' && (
+                                        <span style={{
+                                            fontSize: '11px',
+                                            backgroundColor: '#fce8e6',
+                                            color: '#c5221f',
+                                            padding: '2px 7px',
+                                            borderRadius: '10px',
+                                            fontWeight: 500
+                                        }}>
+                    총괄 관리자
+                </span>
+                                    )}
+
+                                    <ChevronDown size={14} style={{
+                                        transform: isDropdownOpen ? 'rotate(180deg)' : 'none',
+                                        transition: '0.2s'
+                                    }}/>
+                                </button>
+
+                                {/* 💡 드롭다운 서브메뉴: 권한에 따라 분기 렌더링 */}
+                                {isDropdownOpen && (
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            top: '115%',
+                                            right: 0,
+                                            width: '210px',
+                                            backgroundColor: '#ffffff',
+                                            borderRadius: '12px',
+                                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+                                            border: '1px solid #f0f0f0',
+                                            padding: '8px 0',
+                                            zIndex: 1000,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                        }}
+                                    >
+                                        {/* 1. 일반 사용자 (ROLE_USER) */}
+                                        {userRole === 'ROLE_USER' && (
+                                            <>
+                                                <button type="button" onClick={() => handleDummyClick("숙소 위시리스트")}
+                                                        style={dropdownItemStyle}>
+                                                    <Heart size={16}/> 숙소 위시리스트
+                                                </button>
+                                                <button type="button" onClick={() => handleDummyClick("관광지 위시리스트")}
+                                                        style={dropdownItemStyle}>
+                                                    <Map size={16}/> 관광지 위시리스트
+                                                </button>
+                                                <button type="button" onClick={() => handleDummyClick("예매한 숙소 조회")}
+                                                        style={dropdownItemStyle}>
+                                                    <CalendarCheck size={16}/> 예매한 숙소 조회
+                                                </button>
+                                                <button type="button" onClick={() => handleDummyClick("회원정보 수정")}
+                                                        style={dropdownItemStyle}>
+                                                    <Settings size={16}/> 회원정보 수정
+                                                </button>
+                                            </>
+                                        )}
+
+                                        {/* 2. 숙소 관리자 (ROLE_HOST) */}
+                                        {userRole === 'ROLE_HOST' && (
+                                            <>
+                                                <button type="button" onClick={() => handleDummyClick("예약 내역 관리")}
+                                                        style={dropdownItemStyle}>
+                                                    <CalendarCheck size={16}/> 예약 내역 관리
+                                                </button>
+                                                <button type="button" onClick={() => handleDummyClick("숙소 관리")}
+                                                        style={dropdownItemStyle}>
+                                                    <Home size={16}/> 숙소 관리
+                                                </button>
+                                                <button type="button" onClick={() => handleDummyClick("리뷰 관리")}
+                                                        style={dropdownItemStyle}>
+                                                    <MessageSquare size={16}/> 리뷰 관리
+                                                </button>
+                                            </>
+                                        )}
+
+                                        {/* 3. 총괄 관리자 (ROLE_ADMIN) */}
+                                        {userRole === 'ROLE_ADMIN' && (
+                                            <>
+                                                <button type="button" onClick={() => handleDummyClick("사이트 관리")}
+                                                        style={dropdownItemStyle}>
+                                                    <ShieldAlert size={16}/> 사이트 관리
+                                                </button>
+                                                <button type="button" onClick={() => handleDummyClick("파트너 관리")}
+                                                        style={dropdownItemStyle}>
+                                                    <Users size={16}/> 파트너 관리
+                                                </button>
+                                                <button type="button" onClick={() => handleDummyClick("신규 숙소 심사")}
+                                                        style={dropdownItemStyle}>
+                                                    <FileCheck size={16}/> 신규 숙소 심사
+                                                </button>
+                                            </>
+                                        )}
+
+                                        {/* 공통: 구분선 및 로그아웃 */}
+                                        <div style={{height: '1px', backgroundColor: '#f0f0f0', margin: '6px 0'}}/>
+                                        <button
+                                            type="button"
+                                            onClick={handleLogout}
+                                            style={{...dropdownItemStyle, color: '#e53e3e'}}
+                                        >
+                                            <LogOut size={16}/> 로그아웃
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            /* 미로그인 상태: 로그인 및 회원가입 버튼 */
+                            <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                <Link
+                                    to="/login"
+                                    style={{
+                                        fontSize: '14px',
+                                        fontWeight: 600,
+                                        color: '#123f4d',
+                                        textDecoration: 'none',
+                                        padding: '7px 14px',
+                                        borderRadius: '6px',
+                                        backgroundColor: '#f5f5f5',
+                                    }}
+                                >
+                                    로그인
+                                </Link>
+                                <Link
+                                    to="/signup"
+                                    style={{
+                                        fontSize: '14px',
+                                        fontWeight: 600,
+                                        color: '#ffffff',
+                                        backgroundColor: '#123f4d',
+                                        textDecoration: 'none',
+                                        padding: '7px 14px',
+                                        borderRadius: '6px',
+                                    }}
+                                >
+                                    회원가입
+                                </Link>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </header>
+
             <main id="top">
                 <section className={`hero hero-${slide}`}>
                     <div className="hero-image"/>
@@ -87,8 +363,8 @@ export function HomePage() {
                                 <ChevronLeft size={18}/>
                             </button>
                             <span>
-                0{slide + 1} <i/> 03
-              </span>
+                                0{slide + 1} <i/> 03
+                            </span>
                             <button aria-label="다음 배너" onClick={next}>
                                 <ChevronRight size={18}/>
                             </button>
@@ -110,38 +386,38 @@ export function HomePage() {
                         <label className="search-field">
                             <MapPin size={21}/>
                             <span>
-                지역
-                <select
-                    value={region}
-                    onChange={(e) => setRegion(e.target.value)}
-                >
-                  {regions.map((r) => (
-                      <option key={r}>{r}</option>
-                  ))}
-                </select>
-              </span>
+                                지역
+                                <select
+                                    value={region}
+                                    onChange={(e) => setRegion(e.target.value)}
+                                >
+                                    {regions.map((r) => (
+                                        <option key={r}>{r}</option>
+                                    ))}
+                                </select>
+                            </span>
                         </label>
                         <label className="search-field">
                             <Menu size={20}/>
                             <span>
-                숙박 종류
-                <select value={type} onChange={(e) => setType(e.target.value)}>
-                  {types.map((t) => (
-                      <option key={t}>{t}</option>
-                  ))}
-                </select>
-              </span>
+                                숙박 종류
+                                <select value={type} onChange={(e) => setType(e.target.value)}>
+                                    {types.map((t) => (
+                                        <option key={t}>{t}</option>
+                                    ))}
+                                </select>
+                            </span>
                         </label>
                         <label className="search-field keyword">
                             <Search size={21}/>
                             <span>
-                검색어
-                <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="숙소 또는 여행지"
-                />
-              </span>
+                                검색어
+                                <input
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    placeholder="숙소 또는 여행지"
+                                />
+                            </span>
                         </label>
                         <button className="search-button" type="submit">
                             숙소 검색 <ArrowRight size={18}/>
@@ -165,12 +441,12 @@ export function HomePage() {
                             >
                                 <span className="destination-image"/>
                                 <span className="destination-content">
-                  <small>JEJU ISLAND</small>
-                  <strong>{d.name}</strong>
-                  <span>
-                    {d.note} <ArrowRight size={17}/>
-                  </span>
-                </span>
+                                    <small>JEJU ISLAND</small>
+                                    <strong>{d.name}</strong>
+                                    <span>
+                                        {d.note} <ArrowRight size={17}/>
+                                    </span>
+                                </span>
                             </button>
                         ))}
                     </div>
@@ -188,8 +464,8 @@ export function HomePage() {
                                 </p>
                             </div>
                             <span className="sample-note">
-                {!apiOnline && "화면 예시 숙소 · 실제 예약 준비 중"}
-              </span>
+                                {!apiOnline && "화면 예시 숙소 · 실제 예약 준비 중"}
+                            </span>
                         </div>
                         <div className="category-row">
                             <span>지역</span>
@@ -220,7 +496,6 @@ export function HomePage() {
                             </div>
                         </div>
                         <div className="stay-grid">
-                            {/* result 전체가 아닌 0부터 visibleCount(20, 40...)까지만 슬라이스 */}
                             {result.slice(0, visibleCount).map((s) => (
                                 <article className="stay-card" key={s.contentId}>
                                     <button
@@ -234,9 +509,9 @@ export function HomePage() {
                                             backgroundRepeat: "no-repeat",
                                         }}
                                     >
-                    <span className="photo-tag">
-                      {getLodgingTypeName(s.lodgingType)}
-                    </span>
+                                        <span className="photo-tag">
+                                            {getLodgingTypeName(s.lodgingType)}
+                                        </span>
                                     </button>
                                     <div className="stay-info">
                                         <div className="stay-location">
@@ -266,7 +541,6 @@ export function HomePage() {
                             ))}
                         </div>
 
-                        {/* [추가] 남은 데이터가 있을 때만 나타나는 More 버튼 */}
                         {visibleCount < result.length && (
                             <div style={{textAlign: "center", marginTop: "40px"}}>
                                 <button
@@ -293,8 +567,7 @@ export function HomePage() {
                         )}
                         {!result.length && (
                             <div className="empty">
-                                선택한 조건의 숙소가 없습니다. 다른 지역이나 숙박 종류를 골라
-                                주세요.
+                                선택한 조건의 숙소가 없습니다. 다른 지역이나 숙박 종류를 골라 주세요.
                             </div>
                         )}
                     </div>
@@ -312,16 +585,25 @@ export function HomePage() {
                     </div>
                 </section>
             </main>
-            <footer>
-                <div className="container footer-inner">
-                    <div className="footer-brand">
-                        제주 야호<small>JEJU YA-HO</small>
-                    </div>
-                    <p>제주 여행지와 숙소를 둘러보는 예약 플랫폼</p>
-                    <p>© 2026 JEJU YA-HO</p>
-                </div>
-            </footer>
+            <Footer />
             <BookingModal reservation={reservation}/>
         </>
     );
 }
+
+// 드롭다운 아이템 공통 인라인 스타일
+const dropdownItemStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    width: '100%',
+    padding: '10px 16px',
+    backgroundColor: 'transparent',
+    border: 'none',
+    textAlign: 'left',
+    fontSize: '13px',
+    fontWeight: 500,
+    color: '#333333',
+    cursor: 'pointer',
+    transition: 'background-color 0.15s ease',
+};

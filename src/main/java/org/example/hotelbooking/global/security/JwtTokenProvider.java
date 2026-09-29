@@ -26,13 +26,15 @@ public class JwtTokenProvider {
     }
 
     // 💡 1. 토큰 생성 (로그인 성공 시 프론트엔드로 내려줄 출입증)
-    public String createToken(String email, String role) {
+    // 프론트엔드에서 로그인 시 실제 닉네임을 띄우기 위해 String name, .claim("name", name) 추가
+    public String createToken(String email, String role, String name) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + this.expirationTime);
 
         return Jwts.builder()
                 .setSubject(email) // 토큰 주인을 이메일로 기록
                 .claim("role", role) // 권한 정보 기록 (예: ROLE_USER)
+                .claim("name", name) // 💡 토큰 claim에 DB name 추가
                 .setIssuedAt(now) // 발행 시간
                 .setExpiration(validity) // 만료 시간
                 .signWith(key, SignatureAlgorithm.HS256) // 암호화 알고리즘
