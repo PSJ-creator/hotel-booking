@@ -27,6 +27,7 @@ public class StayResponseDto {
     private String mapY;
     private BigDecimal basePrice; // 객실 최저가
 
+    // 기존 BigDecimal 생성자 유지
     public StayResponseDto(String contentId, Long memberId, String title, String lodgingType,
                            String tel, String zipcode, String addr, String checkinTime,
                            String checkoutTime, String roomCount, String roomType,
@@ -52,5 +53,18 @@ public class StayResponseDto {
         this.mapX = mapX;
         this.mapY = mapY;
         this.basePrice = (basePrice != null) ? basePrice : BigDecimal.ZERO;
+    }
+
+    // 💡 JPQL 매핑용 Integer basePrice 생성자 추가
+    public StayResponseDto(String contentId, Long memberId, String title, String lodgingType,
+                           String tel, String zipcode, String addr, String checkinTime,
+                           String checkoutTime, String roomCount, String roomType,
+                           String parking, String subFacility, String overview,
+                           String firstImage, String firstImage2, String mapX, String mapY,
+                           Integer basePrice) {
+        this(contentId, memberId, title, lodgingType, tel, zipcode, addr, checkinTime,
+                checkoutTime, roomCount, roomType, parking, subFacility, overview,
+                firstImage, firstImage2, mapX, mapY,
+                basePrice != null ? BigDecimal.valueOf(basePrice) : BigDecimal.ZERO);
     }
 }

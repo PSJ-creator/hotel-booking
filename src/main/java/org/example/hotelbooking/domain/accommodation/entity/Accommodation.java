@@ -1,41 +1,33 @@
-package org.example.hotelbooking.entity;
+package org.example.hotelbooking.domain.accommodation.entity;
 
+import org.example.hotelbooking.domain.member.entity.Member;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
-@Table(name = "ACCOMMODATION")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
-@Builder
+@Table(name = "ACCOMMODATION")
 public class Accommodation {
 
     @Id
     @Column(name = "CONTENT_ID", length = 20)
     private String contentId;
 
-    @Column(name = "MEMBER_ID")
-    private Long memberId;
-
-    @Column(name = "TITLE", length = 200, nullable = false)
+    @Column(nullable = false, length = 200)
     private String title;
 
     @Column(name = "LODGING_TYPE", length = 50)
     private String lodgingType;
 
-    @Column(name = "TEL", length = 100)
+    @Column(length = 100)
     private String tel;
 
-    @Column(name = "ZIPCODE", length = 10)
+    @Column(length = 10)
     private String zipcode;
 
-    @Column(name = "ADDR", length = 300)
+    @Column(length = 300)
     private String addr;
 
     @Column(name = "CHECKIN_TIME", length = 100)
@@ -50,14 +42,13 @@ public class Accommodation {
     @Column(name = "ROOM_TYPE", length = 200)
     private String roomType;
 
-    @Column(name = "PARKING", length = 300)
+    @Column(length = 300)
     private String parking;
 
     @Column(name = "SUB_FACILITY", length = 1000)
     private String subFacility;
 
     @Lob
-    @Column(name = "OVERVIEW")
     private String overview;
 
     @Column(name = "FIRST_IMAGE", length = 1000)
@@ -72,12 +63,19 @@ public class Accommodation {
     @Column(name = "MAP_Y", length = 50)
     private String mapY;
 
-    @CreationTimestamp
+    @Column(name = "APPROVAL_STATUS", length = 20)
+    private String approvalStatus;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "MEMBER_ID")
+    private Member host;
+
     @Column(name = "CREATED_AT", updatable = false)
     private LocalDateTime createdAt;
 
-    // 1:N 연관관계 매핑 (세부 객실 목록)
-    @OneToMany(mappedBy = "accommodation", fetch = FetchType.LAZY)
-    @Builder.Default
-    private List<Room> rooms = new ArrayList<>();
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        if (this.approvalStatus == null) this.approvalStatus = "APPROVED";
+    }
 }

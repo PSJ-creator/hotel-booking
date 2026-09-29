@@ -1,7 +1,7 @@
 package org.example.hotelbooking.service;
 
 import org.example.hotelbooking.dto.StayResponseDto;
-import org.example.hotelbooking.repository.AccommodationRepository;
+import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
