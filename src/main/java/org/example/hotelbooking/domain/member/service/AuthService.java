@@ -56,7 +56,7 @@ public class AuthService {
         }
 
         // 3. 성공 시 JWT 토큰 생성 후 반환 (member.getRole().getRoleName()으로 "ROLE_USER" 추출)
-        String token = jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName());
+        String token = jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
 
         return new AuthDto.TokenResponse(token);
     }
