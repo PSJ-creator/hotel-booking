@@ -1,8 +1,8 @@
-package org.example.hotelbooking.controller;
+package org.example.hotelbooking.domain.accommodation.controller;
 
 
-import org.example.hotelbooking.dto.StayResponseDto;
-import org.example.hotelbooking.service.StayService;
+import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
+import org.example.hotelbooking.domain.accommodation.service.StayService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

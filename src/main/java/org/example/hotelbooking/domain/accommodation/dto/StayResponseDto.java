@@ -1,4 +1,4 @@
-package org.example.hotelbooking.dto;
+package org.example.hotelbooking.domain.accommodation.dto;
 
 import lombok.*;
 import java.math.BigDecimal;

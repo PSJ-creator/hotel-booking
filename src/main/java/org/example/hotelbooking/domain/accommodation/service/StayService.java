@@ -1,6 +1,6 @@
-package org.example.hotelbooking.service;
+package org.example.hotelbooking.domain.accommodation.service;
 
-import org.example.hotelbooking.dto.StayResponseDto;
+import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
 import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
