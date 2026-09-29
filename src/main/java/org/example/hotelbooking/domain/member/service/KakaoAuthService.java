@@ -66,7 +66,7 @@ public class KakaoAuthService {
         });
 
         // 5. 회원가입(또는 로그인)이 완료되었으니, 우리 사이트 전용 JWT 토큰을 발급합니다.
-        return jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName());
+        return jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
     }
 
     // --- 카카오 API 통신 메서드 ---
