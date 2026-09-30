@@ -40,4 +40,16 @@ public class AccommodationController {
         String contentId = accommodationService.register(email, request);
         return ResponseEntity.ok("숙소 등록 완료! 숙소 ID: " + contentId);
     }
+    @PreAuthorize("hasRole('HOST')")
+    @GetMapping("/my")
+    public ResponseEntity<List<AccommodationResponse>> getMyAccommodations(
+            // 혹시 CustomUserDetails 같은 객체로 꺼내야 한다면 여기서 에러가 나거나 null일 수 있습니다.
+            @AuthenticationPrincipal String email
+    ) {
+        // 💡 콘솔창에 이메일이 정상적으로 찍히는지 확인하는 코드!
+        System.out.println("토큰에서 꺼낸 이메일: " + email);
+
+        List<AccommodationResponse> myAccommodations = accommodationService.getMyAccommodations(email);
+        return ResponseEntity.ok(myAccommodations);
+    }
 }
