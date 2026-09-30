@@ -45,4 +45,21 @@ public class Reservation {
         this.createdAt = LocalDateTime.now();
         if (this.status == null) this.status = "COMPLETED";
     }
+    // 빌더 추가
+    @Builder
+    public Reservation(Member member, Room room, LocalDate checkInDate, LocalDate checkOutDate, Integer totalPrice, String status) {
+        this.member = member;
+        this.room = room;
+        this.checkInDate = checkInDate;
+        this.checkOutDate = checkOutDate;
+        this.totalPrice = totalPrice;
+        this.status = status;
+    }
+    // 💡 예약 취소 로직
+    public void cancel() {
+        if ("CANCELED".equals(this.status)) {
+            throw new IllegalStateException("이미 취소된 예약입니다.");
+        }
+        this.status = "CANCELED";
+    }
 }
