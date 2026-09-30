@@ -29,6 +29,7 @@ import {Link, useNavigate} from "react-router-dom";
 import {Footer} from "../components/Footer";
 import {HostApplyBanner} from "../components/HostApplyBanner.tsx";
 import {NotificationBell} from '../components/NotificationBell';
+import {KakaoStayMap} from "../components/KakaoMap.tsx";
 
 const heroTitles = [
     "제주에 머무는 시간,\n여행이 되다",
@@ -162,13 +163,13 @@ export function HomePage() {
                     </a>
                     <nav className="nav-links">
                         <a href="#destinations">추천 여행지</a>
-                        <a href="#stays">숙소 찾기</a>
+                        <a href="#map">숙소 찾기</a>
                         <a href="#about">서비스 안내</a>
                     </nav>
 
                     {/* 우측 영역: 숙소 둘러보기 + 로그인/프로필 영역 */}
                     <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                        <a className="nav-cta" href="#stays">
+                        <a className="nav-cta">
                             제주 숙소 둘러보기 <ArrowRight size={16}/>
                         </a>
 
@@ -612,6 +613,33 @@ export function HomePage() {
                         )}
                     </div>
                 </section>
+                <section id="map" className="section" style={{ backgroundColor: '#ffffff', borderTop: '1px solid #eef2f6', borderBottom: '1px solid #eef2f6' }}>
+                    <div className="container">
+                        <div className="section-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
+                            <div>
+                                <span className="eyebrow">JEJU MAP GUIDE</span>
+                                <h2>제주, 어디로 갈까요?</h2>
+                                <p>
+                                    마커를 클릭하면 숙소 정보와 1박 요금을 확인하고 바로 이동할 수 있습니다.
+                                </p>
+                            </div>
+                            <span className="sample-note" style={{ color: '#0f766e', fontWeight: 600, backgroundColor: '#ccfbf1', padding: '6px 14px', borderRadius: '20px', fontSize: '12px' }}>
+                                실시간 등록 숙소 {result.length}곳 탐색 가능
+                            </span>
+                        </div>
+
+                        {/* 지도 래퍼 카드 (그림자 및 테두리 정돈) */}
+                        <div style={{
+                            borderRadius: '20px',
+                            overflow: 'hidden',
+                            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.06)',
+                            border: '1px solid #e2e8f0',
+                            position: 'relative'
+                        }}>
+                            <KakaoStayMap stays={result} />
+                        </div>
+                    </div>
+                </section>
                 <section id="about" className="bottom-banner">
                     <div className="container">
                         <div>
@@ -625,6 +653,7 @@ export function HomePage() {
                     </div>
                 </section>
             </main>
+
             <HostApplyBanner/>
             <Footer/>
             <BookingModal reservation={reservation}/>

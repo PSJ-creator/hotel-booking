@@ -4,7 +4,7 @@ import { HomePage } from "./pages/HomePage.tsx";
 import { SignupPage } from "./pages/SignupPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
 import { KakaoCallback } from "./pages/KakaoCallback.tsx"; // 추가
-
+import { StayDetailPage } from "./pages/StayDetailPage.tsx";
 function App() {
     return (
         <BrowserRouter>
@@ -12,7 +12,8 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/login" element={<LoginPage />} />
-                <Route path="/oauth/callback" element={<KakaoCallback />} /> {/* 추가 */}
+                <Route path="/oauth/callback" element={<KakaoCallback />} />
+                <Route path="/stays/:contentId" element={<StayDetailPage />} />
             </Routes>
         </BrowserRouter>
     );

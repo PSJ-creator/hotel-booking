@@ -1,6 +1,7 @@
 package org.example.hotelbooking.domain.accommodation.controller;
 
 
+import org.example.hotelbooking.domain.accommodation.dto.StayDetailResponseDto;
 import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
 import org.example.hotelbooking.domain.accommodation.service.StayService;
 import lombok.RequiredArgsConstructor;
@@ -25,5 +26,10 @@ public class StayController {
     ) {
         List<StayResponseDto> list = stayService.getStays(region, type, query);
         return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("/stays/{contentId}")
+    public ResponseEntity<StayDetailResponseDto> getStayDetail(@PathVariable String contentId) {
+        return ResponseEntity.ok(stayService.getStayDetail(contentId));
     }
 }
