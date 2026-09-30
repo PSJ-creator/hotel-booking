@@ -98,8 +98,8 @@ export function HomePage() {
     }, []);
     // 💡 호스트 계정일 때 승인 숙소 보유 여부 체크
     useEffect(() => {
-        if (isLoggedIn && userRole === 'ROLE_HOST') {
-            const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('accessToken');
+        if (token && userRole === 'ROLE_HOST') {
             fetch('/api/v1/accommodations/has-approved', {
                 headers: {
                     Authorization: `Bearer ${token}`
@@ -109,7 +109,7 @@ export function HomePage() {
                 .then((data: boolean) => setHasApprovedAccommodation(data))
                 .catch(() => setHasApprovedAccommodation(false));
         }
-    }, [isLoggedIn, userRole]);
+    }, [userRole]);
 
     // 드롭다운 외부 클릭 시 닫기
     useEffect(() => {
