@@ -2,6 +2,7 @@ package org.example.hotelbooking.domain.accommodation.repository;
 
 import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
 import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
+import org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,6 +27,7 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
             @Param("type") String type,
             @Param("query") String query
     );
+
     // 숙소 생성시 시퀀스 생성
     @Query(value = "SELECT SEQ_HOST_ACCOM.NEXTVAL FROM DUAL", nativeQuery = true)
     Long getNextHostAccomSeq();
@@ -34,4 +36,8 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
     List<Accommodation> findByHost_Email(String email);
 
     // 숙소 관리자의 숙소 보유 여부 확인
-    boolean existsByHost_MemberIdAndApprovalStatus(Long memberId, org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus approvalStatus);}
+    boolean existsByHost_MemberIdAndApprovalStatus(Long memberId, AccommodationStatus approvalStatus);
+
+    // pending 상태인 숙소 목록 가져오는 메서드
+    List<Accommodation> findByApprovalStatus(AccommodationStatus approvalStatus);
+}
