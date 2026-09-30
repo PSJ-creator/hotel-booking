@@ -63,8 +63,13 @@ public class Accommodation {
     @Column(name = "MAP_Y", length = 50)
     private String mapY;
 
-    @Column(name = "APPROVAL_STATUS", length = 20)
-    private String approvalStatus;
+    // 기존 APPROVAL_STATUS 컬럼을 Enum(PENDING, APPROVED, REJECTED)으로 매핑
+    @Enumerated(EnumType.STRING)
+    @Column(name = "APPROVAL_STATUS", length = 20, nullable = false)
+    private AccommodationStatus approvalStatus;
+
+    @Column(name = "REJECT_REASON", length = 255)
+    private String rejectReason;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "MEMBER_ID")
@@ -76,12 +81,28 @@ public class Accommodation {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-        if (this.approvalStatus == null) this.approvalStatus = "APPROVED";
+        if (this.approvalStatus == null) {
+            this.approvalStatus = AccommodationStatus.PENDING;
+        }
     }
 
-    // Accommodation 엔티티에 생성자 추가
+    // 관리자 승인/반려 편의 메서드
+    public void approve() {
+        this.approvalStatus = AccommodationStatus.APPROVED;
+        this.rejectReason = null;
+    }
+
+    public void reject(String reason) {
+        this.approvalStatus = AccommodationStatus.REJECTED;
+        this.rejectReason = reason;
+    }
+
     @Builder
-    public Accommodation(String contentId, String title, String lodgingType, String tel, String zipcode, String addr, String checkinTime, String checkoutTime, String roomCount, String roomType, String parking, String subFacility, String overview, String firstImage, String firstImage2, String mapX, String mapY, Member host) {
+    public Accommodation(String contentId, String title, String lodgingType, String tel, String zipcode,
+                         String addr, String checkinTime, String checkoutTime, String roomCount,
+                         String roomType, String parking, String subFacility, String overview,
+                         String firstImage, String firstImage2, String mapX, String mapY,
+                         Member host, AccommodationStatus approvalStatus, String rejectReason) {
         this.contentId = contentId;
         this.title = title;
         this.lodgingType = lodgingType;
@@ -100,5 +121,7 @@ public class Accommodation {
         this.mapX = mapX;
         this.mapY = mapY;
         this.host = host;
+        this.approvalStatus = (approvalStatus != null) ? approvalStatus : AccommodationStatus.PENDING;
+        this.rejectReason = rejectReason;
     }
 }

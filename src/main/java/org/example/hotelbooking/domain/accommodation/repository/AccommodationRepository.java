@@ -25,10 +25,12 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
             @Param("type") String type,
             @Param("query") String query
     );
-
     // 숙소 생성시 시퀀스 생성
     @Query(value = "SELECT SEQ_HOST_ACCOM.NEXTVAL FROM DUAL", nativeQuery = true)
     Long getNextHostAccomSeq();
+
+    // 호스트가 등록한 숙소 찾아오는 jpa쿼리
+    List<Accommodation> findByHost_Email(String email);
 
     // 숙소 관리자의 숙소 보유 여부 확인
     boolean existsByHost_MemberIdAndApprovalStatus(Long memberId, String approvalStatus);

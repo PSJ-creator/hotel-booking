@@ -11,7 +11,7 @@ export async function fetchStays(): Promise<Stay[]> {
 }
 
 export async function createReservation(booking: Booking): Promise<BookingResponse> {
-  const response = await fetch(`${apiBase}/api/reservations`, {
+  const response = await fetch(`${apiBase}/api/v1/reservations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(booking),
