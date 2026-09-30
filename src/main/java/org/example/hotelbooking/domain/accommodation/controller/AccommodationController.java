@@ -40,4 +40,14 @@ public class AccommodationController {
         String contentId = accommodationService.register(email, request);
         return ResponseEntity.ok("숙소 등록 완료! 숙소 ID: " + contentId);
     }
+
+    // 💡 승인된 숙소 보유 여부 확인 API
+    @GetMapping("/has-approved")
+    public ResponseEntity<Boolean> checkApprovedAccommodation(@AuthenticationPrincipal String email) {
+        if (email == null) {
+            return ResponseEntity.ok(false);
+        }
+        boolean hasApproved = accommodationService.hasApprovedAccommodation(email);
+        return ResponseEntity.ok(hasApproved);
+    }
 }

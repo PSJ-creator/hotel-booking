@@ -47,4 +47,9 @@ public class Member {
         this.businessNo = businessNo;
     }
 
+    public void updateToHost(String businessNo, Role role) {
+        this.businessNo = businessNo;
+        this.role = role;
+    }
+
 }

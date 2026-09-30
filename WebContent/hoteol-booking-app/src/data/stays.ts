@@ -86,6 +86,6 @@ export const fetchStays = async (
 
  if (query && query.trim()) params.query = query.trim();
 
- const response = await axios.get<Stay[]>('/api/stays', { params });
+ const response = await axios.get<Stay[]>('/api/v1/stays', { params });
  return response.data;
 };
