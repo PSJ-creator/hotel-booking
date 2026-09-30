@@ -84,4 +84,34 @@ public class AccommodationService {
         // 💡 문자열 "APPROVED" 대신 Enum 상수 AccommodationStatus.APPROVED 전달
         return accommodationRepository.existsByHost_MemberIdAndApprovalStatus(host.getMemberId(), AccommodationStatus.APPROVED);
     }
+
+    // 💡 [총괄관리자용] 승인 대기(PENDING) 숙소 목록 조회
+    public List<AccommodationResponse> getPendingAccommodations() {
+        return accommodationRepository.findByApprovalStatus(AccommodationStatus.PENDING)
+                .stream()
+                .map(AccommodationResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    // 💡 [총괄관리자용] 숙소 승인 처리
+    @Transactional
+    public void approveAccommodation(String contentId) {
+        Accommodation accommodation = accommodationRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 숙소입니다. id=" + contentId));
+
+        accommodation.approve(); // 엔티티 편의 메서드 호출 -> APPROVED로 변경
+    }
+
+    // 💡 [총괄관리자용] 숙소 반려 처리
+    @Transactional
+    public void rejectAccommodation(String contentId, String rejectReason) {
+        if (rejectReason == null || rejectReason.isBlank()) {
+            throw new IllegalArgumentException("반려 사유를 입력해야 합니다.");
+        }
+
+        Accommodation accommodation = accommodationRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 숙소입니다. id=" + contentId));
+
+        accommodation.reject(rejectReason); // 엔티티 편의 메서드 호출 -> REJECTED 및 사유 저장
+    }
 }
