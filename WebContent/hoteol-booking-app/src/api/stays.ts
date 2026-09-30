@@ -3,7 +3,7 @@ import type { Booking, BookingResponse, Stay } from '../types/stay';
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 export async function fetchStays(): Promise<Stay[]> {
-  const response = await fetch(`${apiBase}/api/stays`);
+  const response = await fetch(`${apiBase}/api/v1/stays`);
   if (!response.ok) throw new Error('숙소 정보를 불러오지 못했습니다.');
   const stays: unknown = await response.json();
   if (!Array.isArray(stays)) throw new Error('숙소 응답 형식이 올바르지 않습니다.');

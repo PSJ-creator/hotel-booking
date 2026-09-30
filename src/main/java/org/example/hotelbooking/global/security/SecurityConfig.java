@@ -49,7 +49,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/accommodations/**").permitAll()
 
                         // 기존 psj의 숙소 조회 API
-                        .requestMatchers("/api/stays/**").permitAll()
+                        .requestMatchers("/api/v1/stays/**").permitAll()
 
                         // 그 외 요청은 JWT 인증 필요
                         .anyRequest().authenticated()

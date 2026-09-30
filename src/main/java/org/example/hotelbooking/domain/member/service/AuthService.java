@@ -60,4 +60,20 @@ public class AuthService {
 
         return new AuthDto.TokenResponse(token);
     }
+
+    // 유저에서 숙소관리자 신청 후 숙소관리자(ROLE_HOST) 권한 부여 로직
+    @Transactional
+    public String upgradeToHost(String email, String businessNo) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Role hostRole = roleRepository.findByRoleName("ROLE_HOST")
+                .orElseThrow(() -> new IllegalArgumentException("ROLE_HOST 권한이 존재하지 않습니다."));
+
+        // 리플렉션이나 setter 없이 엔티티 업데이트 (Member 엔티티에 비즈니스 메서드가 없다면 builder 또는 편의 메서드 활용)
+        // Member.java에 호스트 전환용 메서드를 추가하거나 아래처럼 필드를 변경합니다.
+        member.updateToHost(businessNo, hostRole);
+
+        return jwtTokenProvider.createToken(member.getEmail(), hostRole.getRoleName(), member.getName());
+    }
 }

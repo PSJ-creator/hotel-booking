@@ -6,6 +6,7 @@ import org.example.hotelbooking.domain.member.service.AuthService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.example.hotelbooking.domain.member.service.KakaoAuthService;
 
@@ -46,5 +47,17 @@ public class AuthController {
         headers.setLocation(URI.create("http://localhost:5173/oauth/callback?token=" + token));
 
         return new ResponseEntity<>(headers, HttpStatus.FOUND); // 302 리다이렉트
+    }
+
+    @PostMapping("/apply-host")
+    public ResponseEntity<AuthDto.TokenResponse> applyHost(
+            @RequestBody AuthDto.HostApplyRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String newToken = authService.upgradeToHost(email, request.getBusinessNo());
+        return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
     }
 }

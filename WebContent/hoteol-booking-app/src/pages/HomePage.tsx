@@ -16,7 +16,8 @@ import {
     MessageSquare,
     ShieldAlert,
     Users,
-    FileCheck
+    FileCheck,
+    PlusCircle
 } from "lucide-react";
 import {BookingModal} from "../components/BookingModal";
 import {useHeroSlider} from "../hooks/useHeroSlider";
@@ -26,6 +27,7 @@ import {destinations, money, regions, types, getLodgingTypeName} from "../data/s
 import {useState, useEffect, useRef} from 'react';
 import {Link, useNavigate} from "react-router-dom";
 import { Footer } from "../components/Footer";
+import {HostApplyBanner} from "../components/HostApplyBanner.tsx";
 
 const heroTitles = [
     "제주에 머무는 시간,\n여행이 되다",
@@ -56,7 +58,8 @@ export function HomePage() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [userName, setUserName] = useState("내 계정");
-    const [userRole, setUserRole] = useState("ROLE_USER"); //
+    const [userRole, setUserRole] = useState("ROLE_USER");
+    const [hasApprovedAccommodation, setHasApprovedAccommodation] = useState(false); // 💡 추가
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // 로그인 여부 및 토큰 기반 닉네임 파싱
@@ -93,6 +96,20 @@ export function HomePage() {
             setIsLoggedIn(false);
         }
     }, []);
+    // 💡 호스트 계정일 때 승인 숙소 보유 여부 체크
+    useEffect(() => {
+        if (isLoggedIn && userRole === 'ROLE_HOST') {
+            const token = localStorage.getItem('accessToken');
+            fetch('/api/v1/accommodations/has-approved', {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+                .then((res) => (res.ok ? res.json() : false))
+                .then((data: boolean) => setHasApprovedAccommodation(data))
+                .catch(() => setHasApprovedAccommodation(false));
+        }
+    }, [isLoggedIn, userRole]);
 
     // 드롭다운 외부 클릭 시 닫기
     useEffect(() => {
@@ -261,20 +278,30 @@ export function HomePage() {
                                         )}
 
                                         {/* 2. 숙소 관리자 (ROLE_HOST) */}
+                                        {/* 2. 숙소 관리자 (ROLE_HOST) */}
                                         {userRole === 'ROLE_HOST' && (
                                             <>
-                                                <button type="button" onClick={() => handleDummyClick("예약 내역 관리")}
-                                                        style={dropdownItemStyle}>
-                                                    <CalendarCheck size={16}/> 예약 내역 관리
-                                                </button>
-                                                <button type="button" onClick={() => handleDummyClick("숙소 관리")}
-                                                        style={dropdownItemStyle}>
-                                                    <Home size={16}/> 숙소 관리
-                                                </button>
-                                                <button type="button" onClick={() => handleDummyClick("리뷰 관리")}
-                                                        style={dropdownItemStyle}>
-                                                    <MessageSquare size={16}/> 리뷰 관리
-                                                </button>
+                                                {hasApprovedAccommodation ? (
+                                                    <>
+                                                        <button type="button" onClick={() => handleDummyClick("예약 내역 관리")}
+                                                                style={dropdownItemStyle}>
+                                                            <CalendarCheck size={16}/> 예약 내역 관리
+                                                        </button>
+                                                        <button type="button" onClick={() => handleDummyClick("숙소 관리")}
+                                                                style={dropdownItemStyle}>
+                                                            <Home size={16}/> 숙소 관리
+                                                        </button>
+                                                        <button type="button" onClick={() => handleDummyClick("리뷰 관리")}
+                                                                style={dropdownItemStyle}>
+                                                            <MessageSquare size={16}/> 리뷰 관리
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <button type="button" onClick={() => handleDummyClick("숙소 신청")}
+                                                            style={{...dropdownItemStyle, color: '#0d9488', fontWeight: 600}}>
+                                                        <PlusCircle size={16}/> 숙소 신청
+                                                    </button>
+                                                )}
                                             </>
                                         )}
 
@@ -585,6 +612,7 @@ export function HomePage() {
                     </div>
                 </section>
             </main>
+            <HostApplyBanner />
             <Footer />
             <BookingModal reservation={reservation}/>
         </>

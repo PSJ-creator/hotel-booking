@@ -26,4 +26,10 @@ public class AuthDto {
             this.token = token;
         }
     }
+
+    // 기존 유저 숙소관리자 신청을 위한 사업자번호 get 추가
+    @Getter
+    public static class HostApplyRequest {
+        private String businessNo;
+    }
 }
