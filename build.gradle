@@ -51,6 +51,10 @@ dependencies {
 
     // Jackson 라이브러리 추가
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+    // Redis 및 Redisson 분산 락 라이브러리
+    implementation 'org.redisson:redisson:3.27.0'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 }
 tasks.named('test') {
     useJUnitPlatform()
