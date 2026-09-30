@@ -17,7 +17,7 @@ import {
     ShieldAlert,
     Users,
     FileCheck,
-    PlusCircle
+    PlusCircle,
 } from "lucide-react";
 import {BookingModal} from "../components/BookingModal";
 import {useHeroSlider} from "../hooks/useHeroSlider";
@@ -26,8 +26,9 @@ import {useStays} from "../hooks/useStays";
 import {destinations, money, regions, types, getLodgingTypeName} from "../data/stays";
 import {useState, useEffect, useRef} from 'react';
 import {Link, useNavigate} from "react-router-dom";
-import { Footer } from "../components/Footer";
+import {Footer} from "../components/Footer";
 import {HostApplyBanner} from "../components/HostApplyBanner.tsx";
+import {NotificationBell} from '../components/NotificationBell';
 
 const heroTitles = [
     "제주에 머무는 시간,\n여행이 되다",
@@ -171,169 +172,181 @@ export function HomePage() {
                             제주 숙소 둘러보기 <ArrowRight size={16}/>
                         </a>
 
-                        {/*로그인된 상태: 유저 드롭다운 메뉴 */}
+                        {/*로그인된 상태: 유저 드롭다운 메뉴 + 알림 종 아이콘 */}
                         {isLoggedIn ? (
-                            <div style={{position: 'relative'}} ref={dropdownRef}>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsDropdownOpen((prev) => !prev)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        padding: '6px 14px',
-                                        backgroundColor: '#ffffff',
-                                        border: '1.5px solid #123f4d',
-                                        borderRadius: '24px',
-                                        cursor: 'pointer',
-                                        color: '#123f4d',
-                                        fontWeight: 600,
-                                        fontSize: '14px',
-                                    }}
-                                >
-                                    <div style={{
-                                        width: '26px',
-                                        height: '26px',
-                                        borderRadius: '50%',
-                                        backgroundColor: '#123f4d',
-                                        color: '#ffffff',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}>
-                                        <User size={16}/>
-                                    </div>
-                                    <span>{userName}</span>
-
-                                    {/* 💡 권한별 뱃지 표시 */}
-                                    {userRole === 'ROLE_HOST' && (
-                                        <span style={{
-                                            fontSize: '11px',
-                                            backgroundColor: '#e6f4ea',
-                                            color: '#137333',
-                                            padding: '2px 7px',
-                                            borderRadius: '10px',
-                                            fontWeight: 500
-                                        }}>
-                    숙소관리자(파트너)
-                </span>
-                                    )}
-                                    {userRole === 'ROLE_ADMIN' && (
-                                        <span style={{
-                                            fontSize: '11px',
-                                            backgroundColor: '#fce8e6',
-                                            color: '#c5221f',
-                                            padding: '2px 7px',
-                                            borderRadius: '10px',
-                                            fontWeight: 500
-                                        }}>
-                    총괄 관리자
-                </span>
-                                    )}
-
-                                    <ChevronDown size={14} style={{
-                                        transform: isDropdownOpen ? 'rotate(180deg)' : 'none',
-                                        transition: '0.2s'
-                                    }}/>
-                                </button>
-
-                                {/* 💡 드롭다운 서브메뉴: 권한에 따라 분기 렌더링 */}
-                                {isDropdownOpen && (
-                                    <div
+                            <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                                {/* 1. 프로필 드롭다운 영역 */}
+                                <div style={{position: 'relative'}} ref={dropdownRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsDropdownOpen((prev) => !prev)}
                                         style={{
-                                            position: 'absolute',
-                                            top: '115%',
-                                            right: 0,
-                                            width: '210px',
-                                            backgroundColor: '#ffffff',
-                                            borderRadius: '12px',
-                                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-                                            border: '1px solid #f0f0f0',
-                                            padding: '8px 0',
-                                            zIndex: 1000,
                                             display: 'flex',
-                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '6px 14px',
+                                            backgroundColor: '#ffffff',
+                                            border: '1.5px solid #123f4d',
+                                            borderRadius: '24px',
+                                            cursor: 'pointer',
+                                            color: '#123f4d',
+                                            fontWeight: 600,
+                                            fontSize: '14px',
                                         }}
                                     >
-                                        {/* 1. 일반 사용자 (ROLE_USER) */}
-                                        {userRole === 'ROLE_USER' && (
-                                            <>
-                                                <button type="button" onClick={() => handleDummyClick("숙소 위시리스트")}
-                                                        style={dropdownItemStyle}>
-                                                    <Heart size={16}/> 숙소 위시리스트
-                                                </button>
-                                                <button type="button" onClick={() => handleDummyClick("관광지 위시리스트")}
-                                                        style={dropdownItemStyle}>
-                                                    <Map size={16}/> 관광지 위시리스트
-                                                </button>
-                                                <button type="button" onClick={() => handleDummyClick("예매한 숙소 조회")}
-                                                        style={dropdownItemStyle}>
-                                                    <CalendarCheck size={16}/> 예매한 숙소 조회
-                                                </button>
-                                                <button type="button" onClick={() => handleDummyClick("회원정보 수정")}
-                                                        style={dropdownItemStyle}>
-                                                    <Settings size={16}/> 회원정보 수정
-                                                </button>
-                                            </>
-                                        )}
+                                        <div style={{
+                                            width: '26px',
+                                            height: '26px',
+                                            borderRadius: '50%',
+                                            backgroundColor: '#123f4d',
+                                            color: '#ffffff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <User size={16}/>
+                                        </div>
+                                        <span>{userName}</span>
 
-                                        {/* 2. 숙소 관리자 (ROLE_HOST) */}
-                                        {/* 2. 숙소 관리자 (ROLE_HOST) */}
+                                        {/* 💡 권한별 뱃지 표시 */}
                                         {userRole === 'ROLE_HOST' && (
-                                            <>
-                                                {hasApprovedAccommodation ? (
-                                                    <>
-                                                        <button type="button" onClick={() => handleDummyClick("예약 내역 관리")}
-                                                                style={dropdownItemStyle}>
-                                                            <CalendarCheck size={16}/> 예약 내역 관리
-                                                        </button>
-                                                        <button type="button" onClick={() => handleDummyClick("숙소 관리")}
-                                                                style={dropdownItemStyle}>
-                                                            <Home size={16}/> 숙소 관리
-                                                        </button>
-                                                        <button type="button" onClick={() => handleDummyClick("리뷰 관리")}
-                                                                style={dropdownItemStyle}>
-                                                            <MessageSquare size={16}/> 리뷰 관리
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    <button type="button" onClick={() => handleDummyClick("숙소 신청")}
-                                                            style={{...dropdownItemStyle, color: '#0d9488', fontWeight: 600}}>
-                                                        <PlusCircle size={16}/> 숙소 신청
-                                                    </button>
-                                                )}
-                                            </>
+                                            <span style={{
+                                                fontSize: '11px',
+                                                backgroundColor: '#e6f4ea',
+                                                color: '#137333',
+                                                padding: '2px 7px',
+                                                borderRadius: '10px',
+                                                fontWeight: 500
+                                            }}>
+                                                숙소관리자(파트너)
+                                            </span>
                                         )}
-
-                                        {/* 3. 총괄 관리자 (ROLE_ADMIN) */}
                                         {userRole === 'ROLE_ADMIN' && (
-                                            <>
-                                                <button type="button" onClick={() => handleDummyClick("사이트 관리")}
-                                                        style={dropdownItemStyle}>
-                                                    <ShieldAlert size={16}/> 사이트 관리
-                                                </button>
-                                                <button type="button" onClick={() => handleDummyClick("파트너 관리")}
-                                                        style={dropdownItemStyle}>
-                                                    <Users size={16}/> 파트너 관리
-                                                </button>
-                                                <button type="button" onClick={() => handleDummyClick("신규 숙소 심사")}
-                                                        style={dropdownItemStyle}>
-                                                    <FileCheck size={16}/> 신규 숙소 심사
-                                                </button>
-                                            </>
+                                            <span style={{
+                                                fontSize: '11px',
+                                                backgroundColor: '#fce8e6',
+                                                color: '#c5221f',
+                                                padding: '2px 7px',
+                                                borderRadius: '10px',
+                                                fontWeight: 500
+                                            }}>
+                                                총괄 관리자
+                                            </span>
                                         )}
 
-                                        {/* 공통: 구분선 및 로그아웃 */}
-                                        <div style={{height: '1px', backgroundColor: '#f0f0f0', margin: '6px 0'}}/>
-                                        <button
-                                            type="button"
-                                            onClick={handleLogout}
-                                            style={{...dropdownItemStyle, color: '#e53e3e'}}
+                                        <ChevronDown size={14} style={{
+                                            transform: isDropdownOpen ? 'rotate(180deg)' : 'none',
+                                            transition: '0.2s'
+                                        }}/>
+                                    </button>
+
+                                    {/* 💡 드롭다운 서브메뉴 */}
+                                    {isDropdownOpen && (
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                top: '115%',
+                                                right: 0,
+                                                width: '210px',
+                                                backgroundColor: '#ffffff',
+                                                borderRadius: '12px',
+                                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+                                                border: '1px solid #f0f0f0',
+                                                padding: '8px 0',
+                                                zIndex: 1000,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                            }}
                                         >
-                                            <LogOut size={16}/> 로그아웃
-                                        </button>
-                                    </div>
-                                )}
+                                            {/* 1. 일반 사용자 (ROLE_USER) */}
+                                            {userRole === 'ROLE_USER' && (
+                                                <>
+                                                    <button type="button" onClick={() => handleDummyClick("숙소 위시리스트")}
+                                                            style={dropdownItemStyle}>
+                                                        <Heart size={16}/> 숙소 위시리스트
+                                                    </button>
+                                                    <button type="button" onClick={() => handleDummyClick("관광지 위시리스트")}
+                                                            style={dropdownItemStyle}>
+                                                        <Map size={16}/> 관광지 위시리스트
+                                                    </button>
+                                                    <button type="button" onClick={() => handleDummyClick("예매한 숙소 조회")}
+                                                            style={dropdownItemStyle}>
+                                                        <CalendarCheck size={16}/> 예매한 숙소 조회
+                                                    </button>
+                                                    <button type="button" onClick={() => handleDummyClick("회원정보 수정")}
+                                                            style={dropdownItemStyle}>
+                                                        <Settings size={16}/> 회원정보 수정
+                                                    </button>
+                                                </>
+                                            )}
+
+                                            {/* 2. 숙소 관리자 (ROLE_HOST) */}
+                                            {userRole === 'ROLE_HOST' && (
+                                                <>
+                                                    {hasApprovedAccommodation ? (
+                                                        <>
+                                                            <button type="button"
+                                                                    onClick={() => handleDummyClick("예약 내역 관리")}
+                                                                    style={dropdownItemStyle}>
+                                                                <CalendarCheck size={16}/> 예약 내역 관리
+                                                            </button>
+                                                            <button type="button"
+                                                                    onClick={() => handleDummyClick("숙소 관리")}
+                                                                    style={dropdownItemStyle}>
+                                                                <Home size={16}/> 숙소 관리
+                                                            </button>
+                                                            <button type="button"
+                                                                    onClick={() => handleDummyClick("리뷰 관리")}
+                                                                    style={dropdownItemStyle}>
+                                                                <MessageSquare size={16}/> 리뷰 관리
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <button type="button" onClick={() => handleDummyClick("숙소 신청")}
+                                                                style={{
+                                                                    ...dropdownItemStyle,
+                                                                    color: '#0d9488',
+                                                                    fontWeight: 600
+                                                                }}>
+                                                            <PlusCircle size={16}/> 숙소 신청
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
+
+                                            {/* 3. 총괄 관리자 (ROLE_ADMIN) */}
+                                            {userRole === 'ROLE_ADMIN' && (
+                                                <>
+                                                    <button type="button" onClick={() => handleDummyClick("사이트 관리")}
+                                                            style={dropdownItemStyle}>
+                                                        <ShieldAlert size={16}/> 사이트 관리
+                                                    </button>
+                                                    <button type="button" onClick={() => handleDummyClick("파트너 관리")}
+                                                            style={dropdownItemStyle}>
+                                                        <Users size={16}/> 파트너 관리
+                                                    </button>
+                                                    <button type="button" onClick={() => handleDummyClick("신규 숙소 심사")}
+                                                            style={dropdownItemStyle}>
+                                                        <FileCheck size={16}/> 신규 숙소 심사
+                                                    </button>
+                                                </>
+                                            )}
+
+                                            {/* 공통: 구분선 및 로그아웃 */}
+                                            <div style={{height: '1px', backgroundColor: '#f0f0f0', margin: '6px 0'}}/>
+                                            <button
+                                                type="button"
+                                                onClick={handleLogout}
+                                                style={{...dropdownItemStyle, color: '#e53e3e'}}
+                                            >
+                                                <LogOut size={16}/> 로그아웃
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 2. 프로필 버튼 우측에 나란히 배치되는 알림 종 컴포넌트 */}
+                                <NotificationBell userRole={userRole} isLoggedIn={isLoggedIn}/>
                             </div>
                         ) : (
                             /* 미로그인 상태: 로그인 및 회원가입 버튼 */
@@ -612,8 +625,8 @@ export function HomePage() {
                     </div>
                 </section>
             </main>
-            <HostApplyBanner />
-            <Footer />
+            <HostApplyBanner/>
+            <Footer/>
             <BookingModal reservation={reservation}/>
         </>
     );
