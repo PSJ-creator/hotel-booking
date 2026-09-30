@@ -81,6 +81,7 @@ public class AccommodationService {
         Member host = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
 
-        return accommodationRepository.existsByHost_MemberIdAndApprovalStatus(host.getMemberId(), "APPROVED");
+        // 💡 문자열 "APPROVED" 대신 Enum 상수 AccommodationStatus.APPROVED 전달
+        return accommodationRepository.existsByHost_MemberIdAndApprovalStatus(host.getMemberId(), AccommodationStatus.APPROVED);
     }
 }

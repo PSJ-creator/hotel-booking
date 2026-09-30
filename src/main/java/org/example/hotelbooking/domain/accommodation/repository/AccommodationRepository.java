@@ -33,5 +33,4 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
     List<Accommodation> findByHost_Email(String email);
 
     // 숙소 관리자의 숙소 보유 여부 확인
-    boolean existsByHost_MemberIdAndApprovalStatus(Long memberId, String approvalStatus);
-}
+    boolean existsByHost_MemberIdAndApprovalStatus(Long memberId, org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus approvalStatus);}
