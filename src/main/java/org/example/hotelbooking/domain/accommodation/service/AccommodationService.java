@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.hotelbooking.domain.accommodation.dto.AccommodationDto;
 import org.example.hotelbooking.domain.accommodation.dto.AccommodationResponse;
 import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus;
 import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
 import org.example.hotelbooking.domain.member.entity.Member;
 import org.example.hotelbooking.domain.member.repository.MemberRepository;
@@ -42,7 +43,6 @@ public class AccommodationService {
             Long seqNumber = accommodationRepository.getNextHostAccomSeq();
             // 1부터 들어가기
             contentId = String.valueOf(seqNumber);
-
         }
 
         Accommodation accommodation = Accommodation.builder()
@@ -60,13 +60,20 @@ public class AccommodationService {
                 .subFacility(request.getSubFacility())
                 .overview(request.getOverview())
                 .host(host) // JWT 토큰에서 꺼낸 유저를 숙소 주인으로 등록
+                .approvalStatus(AccommodationStatus.PENDING)
                 .build();
 
         accommodationRepository.save(accommodation);
 
         return accommodation.getContentId();
+    }
 
-
+    // 💡호스트 이메일로 내 숙소 목록 가져오기
+    public List<AccommodationResponse> getMyAccommodations(String email) {
+        return accommodationRepository.findByHost_Email(email)
+                .stream()
+                .map(AccommodationResponse::from)
+                .collect(Collectors.toList());
     }
 
     // 숙소 관리자 숙소 보유 여부 확인(호스트 이메일로 회원을 찾아 승인된(APPROVED) 숙소가 있는지 체크)

@@ -3,6 +3,7 @@ package org.example.hotelbooking.domain.accommodation.repository;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -21,7 +22,7 @@ public class AccommodationRepositoryImpl implements AccommodationRepositoryCusto
         return queryFactory
                 .selectFrom(accommodation)
                 .where(
-                        accommodation.approvalStatus.eq("APPROVED"),
+                        accommodation.approvalStatus.eq(AccommodationStatus.APPROVED),
                         accommodation.mapX.between(minX, maxX),
                         accommodation.mapY.between(minY, maxY)
                 )
