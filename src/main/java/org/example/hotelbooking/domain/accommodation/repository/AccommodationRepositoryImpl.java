@@ -17,6 +17,7 @@ public class AccommodationRepositoryImpl implements AccommodationRepositoryCusto
 
     private final JPAQueryFactory queryFactory;
 
+
     @Override
     public List<Accommodation> findAccommodationsInMap(String minX, String maxX, String minY, String maxY) {
         return queryFactory
@@ -27,5 +28,10 @@ public class AccommodationRepositoryImpl implements AccommodationRepositoryCusto
                         accommodation.mapY.between(minY, maxY)
                 )
                 .fetch();
+
+
     }
+
+
+
 }

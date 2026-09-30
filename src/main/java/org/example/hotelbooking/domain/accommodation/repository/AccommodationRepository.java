@@ -2,6 +2,7 @@ package org.example.hotelbooking.domain.accommodation.repository;
 
 import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
 import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
+import org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,4 +35,11 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
     List<Accommodation> findByHost_Email(String email);
 
     // 숙소 관리자의 숙소 보유 여부 확인
-    boolean existsByHost_MemberIdAndApprovalStatus(Long memberId, org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus approvalStatus);}
+    boolean existsByHost_MemberIdAndApprovalStatus(Long memberId, org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus approvalStatus);
+
+    // 특정 호스트의 반려된 숙소 목록 조회 (반려 알림용)
+    List<Accommodation> findByHost_MemberIdAndApprovalStatus(Long memberId, AccommodationStatus approvalStatus);
+
+    // 총괄 관리자용: 승인 대기(PENDING) 상태 숙소 목록 조회 (심사 알림용)
+    List<Accommodation> findByApprovalStatusOrderByCreatedAtDesc(AccommodationStatus approvalStatus);
+}
