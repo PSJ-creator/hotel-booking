@@ -16,7 +16,8 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
             "a.overview, a.firstImage, a.firstImage2, a.mapX, a.mapY, " +
             "COALESCE((SELECT MIN(r.pricePerNight) FROM Room r WHERE r.accommodation = a), 0)) " +
             "FROM Accommodation a " +
-            "WHERE (:region IS NULL OR :region = '' OR :region = '전체' OR a.addr LIKE %:region%) " +
+            "WHERE a.approvalStatus = org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus.APPROVED " +
+            "  AND (:region IS NULL OR :region = '' OR :region = '전체' OR a.addr LIKE %:region%) " +
             "  AND (:type IS NULL OR :type = '' OR :type = '전체' OR a.lodgingType LIKE %:type%) " +
             "  AND (:query IS NULL OR :query = '' OR a.title LIKE %:query% OR a.addr LIKE %:query%) " +
             "ORDER BY a.contentId DESC")
