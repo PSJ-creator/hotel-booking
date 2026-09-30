@@ -42,4 +42,7 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
 
     // 총괄 관리자용: 승인 대기(PENDING) 상태 숙소 목록 조회 (심사 알림용)
     List<Accommodation> findByApprovalStatusOrderByCreatedAtDesc(AccommodationStatus approvalStatus);
+
+    // pending 상태인 숙소 목록 가져오는 메서드
+    List<Accommodation> findByApprovalStatus(AccommodationStatus approvalStatus);
 }
