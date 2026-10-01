@@ -85,11 +85,13 @@ export function HomePage() {
     // 1. [검색 패널용] 지도 모달 오픈
     const handleMapSearch = async () => {
         const currentScrollY = window.scrollY;
-        search();
+
+        // 💡 [신규 교체]: checkIn, checkOut을 함께 전달
+        search(checkIn, checkOut);
         window.scrollTo(0, currentScrollY);
 
         try {
-            const filteredStays = await fetchStays(region, type, query);
+            const filteredStays = await fetchStays(region, type, query, checkIn, checkOut);
             setModalStays(filteredStays);
         } catch {
             setModalStays(result);
@@ -465,7 +467,7 @@ export function HomePage() {
                         className="search-panel"
                         onSubmit={(e) => {
                             e.preventDefault();
-                            search();
+                            search(checkIn, checkOut); // 💡 [신규 교체]: 선택한 checkIn, checkOut 전달
                         }}
                         style={{ display: 'flex', alignItems: 'center', gap: '0' }}
                     >
