@@ -29,12 +29,21 @@ public class StayService {
     // 💡 [신규 교체]: checkIn, checkOut 수신 및 박수 계산 후 Repository 전달
     public List<StayResponseDto> getStays(String region, String type, String query, java.time.LocalDate checkIn, java.time.LocalDate checkOut, Integer guests) {
         Long stayDays = 0L;
+
         if (checkIn != null && checkOut != null && checkOut.isAfter(checkIn)) {
+            // 정상적으로 날짜가 넘어온 경우 박수 계산
             stayDays = java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut);
         } else {
-            checkIn = null;
-            checkOut = null;
+            // 💡 날짜가 안 넘어왔을 때 null 바인딩 에러를 막기 위한 더미 날짜
+            // 어차피 stayDays가 0L이면 쿼리에서 무시하므로 결과에 영향을 주지 않습니다.
+            checkIn = LocalDate.now();
+            checkOut = LocalDate.now();
         }
+        System.out.println("========== [검색 테스트] ==========");
+        System.out.println("프론트에서 넘어온 체크인: " + checkIn);
+        System.out.println("프론트에서 넘어온 체크아웃: " + checkOut);
+        System.out.println("계산된 박수(stayDays): " + stayDays);
+        System.out.println("=================================");
 
         return accommodationRepository.searchStays(region, type, query, checkIn, checkOut, stayDays, guests);
     }

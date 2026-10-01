@@ -18,6 +18,7 @@ export function DateRangePicker({ checkIn, checkOut, onChange }: DateRangePicker
         return new Date(d.getFullYear(), d.getMonth(), 1);
     });
 
+
     const pickerRef = useRef<HTMLDivElement>(null);
 
     // 오늘 날짜 문자열
