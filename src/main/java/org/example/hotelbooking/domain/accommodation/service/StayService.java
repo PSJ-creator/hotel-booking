@@ -12,6 +12,7 @@ import org.example.hotelbooking.domain.room.repository.RoomRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,8 +26,8 @@ public class StayService {
     private final RoomRepository roomRepository;
     private final RoomImageRepository roomImageRepository;
 
-    public List<StayResponseDto> getStays(String region, String type, String query) {
-        return accommodationRepository.searchStays(region, type, query);
+    public List<StayResponseDto> getStays(String region, String type, String query, LocalDate date) {
+        return accommodationRepository.searchStays(region, type, query, date);
     }
 
     public StayDetailResponseDto getStayDetail(String contentId) {

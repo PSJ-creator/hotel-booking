@@ -17,4 +17,13 @@ public interface RoomInventoryRepository extends JpaRepository<RoomInventory, Lo
             @Param("checkIn") LocalDate checkIn,
             @Param("checkOut") LocalDate checkOut
     );
+    // 💡 Fetch Join을 사용해 RoomInventory를 가져올 때 Room 정보도 한 번에(N+1 방지) 긁어옵니다.
+    @Query("SELECT ri FROM RoomInventory ri JOIN FETCH ri.room r " +
+            "WHERE r.accommodation.contentId = :contentId " + // ⚠️ Room 엔티티 안의 Accommodation 필드명에 맞게 수정!
+            "AND ri.inventoryDate = :date " +
+            "AND ri.availableCount > 0")
+    List<RoomInventory> findAvailableRooms(
+            @Param("contentId") Long contentId,
+            @Param("date") LocalDate date
+    );
 }

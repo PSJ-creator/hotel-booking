@@ -5,9 +5,11 @@ import org.example.hotelbooking.domain.accommodation.dto.StayDetailResponseDto;
 import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
 import org.example.hotelbooking.domain.accommodation.service.StayService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @CrossOrigin(origins = "http://localhost:5173")
@@ -22,9 +24,10 @@ public class StayController {
     public ResponseEntity<List<StayResponseDto>> getStays(
             @RequestParam(value = "region", required = false) String region,
             @RequestParam(value = "type", required = false) String type,
-            @RequestParam(value = "query", required = false) String query
+            @RequestParam(value = "query", required = false) String query,
+            @RequestParam(value = "date", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date // 💡 추가
     ) {
-        List<StayResponseDto> list = stayService.getStays(region, type, query);
+        List<StayResponseDto> list = stayService.getStays(region, type, query, date);
         return ResponseEntity.ok(list);
     }
 
