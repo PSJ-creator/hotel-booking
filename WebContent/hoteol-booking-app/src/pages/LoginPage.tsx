@@ -126,6 +126,9 @@ export function LoginPage() {
             <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#666' }}>
                 아직 계정이 없으신가요? <Link to="/signup" style={{ color: '#123f4d', fontWeight: 600, textDecoration: 'none' }}>회원가입</Link>
             </div>
+            <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '13px', color: '#666' }}>
+                비밀번호를 잊으셨나요? <Link to="/find-password" style={{ color: '#123f4d', fontWeight: 600, textDecoration: 'none' }}>비밀번호 찾기</Link>
+            </div>
         </div>
             <Footer/>
         </>

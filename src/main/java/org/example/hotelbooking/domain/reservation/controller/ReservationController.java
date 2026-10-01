@@ -2,9 +2,13 @@ package org.example.hotelbooking.domain.reservation.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
 import org.example.hotelbooking.domain.reservation.dto.ReservationDto;
 import org.example.hotelbooking.domain.reservation.facade.ReservationLockFacade;
+import org.example.hotelbooking.domain.reservation.service.ReservationService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -14,14 +18,19 @@ import org.springframework.web.bind.annotation.*;
 public class ReservationController {
 
     private final ReservationLockFacade reservationLockFacade;
+    private final MemberRepository memberRepository;
 
     @PostMapping
-    public ResponseEntity<ReservationDto.Response> createReservation(@RequestBody ReservationDto.Request request) {
-        log.info("예약 요청 수신 - MemberId: {}, RoomId: {}", request.getMemberId(), request.getRoomId());
+    public ResponseEntity<ReservationDto.Response> createReservation(
+            @RequestBody ReservationDto.Request request,
+            @AuthenticationPrincipal String email // 💡 JWT 토큰에서 꺼낸 로그인 유저의 이메일
+    ) {
+        // 💡 토큰의 이메일로 DB 회원 조회 -> 실제 memberId(22L) 획득
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다. email=" + email));
 
-        // 💡 1. 분산 락이 적용된 예약 퍼사드 호출
         reservationLockFacade.reserveRoomWithLock(
-                request.getMemberId(),
+                member.getMemberId(), // 22L가 안전하게 전달됨
                 request.getRoomId(),
                 request.getCheckInDate(),
                 request.getCheckOutDate(),

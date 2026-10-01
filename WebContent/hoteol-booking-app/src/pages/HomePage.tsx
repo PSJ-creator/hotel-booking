@@ -2,8 +2,8 @@ import {
     ArrowRight,
     ChevronLeft,
     ChevronRight,
-    MapPin,
-    Menu,
+    Calendar,
+    Users,
     Search,
     User,
     ChevronDown,
@@ -15,22 +15,22 @@ import {
     Home,
     MessageSquare,
     ShieldAlert,
-    Users,
     FileCheck,
     PlusCircle,
+    MapPin,
 } from "lucide-react";
-import {BookingModal} from "../components/BookingModal";
-import {useHeroSlider} from "../hooks/useHeroSlider";
-import {useReservation} from "../hooks/useReservation";
-import {useStays} from "../hooks/useStays";
+import { BookingModal } from "../components/BookingModal";
+import { useHeroSlider } from "../hooks/useHeroSlider";
+import { useReservation } from "../hooks/useReservation";
+import { useStays } from "../hooks/useStays";
 import { destinations, money, regions, types, getLodgingTypeName, fetchStays } from "../data/stays";
-import {useState, useEffect, useRef} from 'react';
-import {Link, useNavigate} from "react-router-dom";
-import {Footer} from "../components/Footer";
-import {HostApplyBanner} from "../components/HostApplyBanner.tsx";
-import {NotificationBell} from '../components/NotificationBell';
-import {StayMapModal} from "../components/StayMapModal";
-import type {Stay} from "../types/stay.ts";
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Link, useNavigate } from "react-router-dom";
+import { Footer } from "../components/Footer";
+import { HostApplyBanner } from "../components/HostApplyBanner.tsx";
+import { NotificationBell } from '../components/NotificationBell';
+import { StayMapModal } from "../components/StayMapModal";
+import type { Stay } from "../types/stay.ts";
 
 const heroTitles = [
     "제주에 머무는 시간,\n여행이 되다",
@@ -54,6 +54,19 @@ export function HomePage() {
         search,
     } = useStays();
 
+    // 오늘 및 내일 기본 날짜 계산
+    const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const tomorrowStr = useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
+    }, []);
+
+    // 검색 패널 상태 (일정, 인원)
+    const [checkIn, setCheckIn] = useState(todayStr);
+    const [checkOut, setCheckOut] = useState(tomorrowStr);
+    const [guests, setGuests] = useState(2);
+
     // 화면에 보여줄 숙소 개수 (기본 18개)
     const [visibleCount, setVisibleCount] = useState(18);
 
@@ -69,14 +82,13 @@ export function HomePage() {
     const [modalStays, setModalStays] = useState<Stay[]>([]);
     const [isMapModalOpen, setIsMapModalOpen] = useState(false);
 
-    // 💡 1. [검색 패널용] 현재 필터링된 결과로 지도 모달 오픈
+    // 1. [검색 패널용] 지도 모달 오픈
     const handleMapSearch = async () => {
         const currentScrollY = window.scrollY;
-        search(); // 기존 목록 검색도 트리거 (메인 화면용)
+        search();
         window.scrollTo(0, currentScrollY);
 
         try {
-            // 현재 입력창에 선택된 값으로 직접 조회하여 최신 결과를 즉시 모달에 전달
             const filteredStays = await fetchStays(region, type, query);
             setModalStays(filteredStays);
         } catch {
@@ -86,10 +98,13 @@ export function HomePage() {
         setIsMapModalOpen(true);
     };
 
-    // 💡 2. [헤더 네비게이션용] 필터링 없는 제주도 전체 숙소 지도 모달 오픈
+    // 2. [헤더 네비게이션용] 전체 숙소 지도 모달 오픈
     const handleOpenAllMap = async () => {
+        setRegion('전체 지역');
+        setType('전체 숙박');
+        setQuery('');
+
         try {
-            // 필터 파라미터를 빈 값으로 전달해 전체 목록 조회
             const allStays = await fetchStays('', '', '');
             setModalStays(allStays);
         } catch {
@@ -129,7 +144,7 @@ export function HomePage() {
         }
     }, []);
 
-    // 호스트 계정일 때 승인 숙소 보유 여부 체크
+    // 호스트 계정 승인 숙소 보유 여부 체크
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token && userRole === 'ROLE_HOST') {
@@ -144,7 +159,7 @@ export function HomePage() {
         }
     }, [userRole]);
 
-    // 드롭다운 외부 클릭 시 닫기
+    // 드롭다운 외부 클릭 감지
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -155,7 +170,6 @@ export function HomePage() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // 로그아웃 핸들러
     const handleLogout = () => {
         localStorage.removeItem('accessToken');
         setIsLoggedIn(false);
@@ -164,7 +178,6 @@ export function HomePage() {
         navigate('/');
     };
 
-    // 더미 메뉴 클릭 안내
     const handleDummyClick = (menuName: string) => {
         alert(`[${menuName}] 기능은 준비 중입니다.`);
         setIsDropdownOpen(false);
@@ -178,9 +191,9 @@ export function HomePage() {
         setVisibleCount((prev) => prev + 18);
     };
 
-    const {slide, previous, next} = useHeroSlider();
+    const { slide, previous, next } = useHeroSlider();
     const reservation = useReservation(apiOnline);
-    const {open} = reservation;
+    const { open } = reservation;
 
     return (
         <>
@@ -194,7 +207,6 @@ export function HomePage() {
                     </a>
                     <nav className="nav-links">
                         <a href="#destinations">추천 여행지</a>
-                        {/* 💡 헤더의 '지도 찾기': 필터 없이 전체 숙소 표시 */}
                         <button
                             type="button"
                             onClick={handleOpenAllMap}
@@ -212,15 +224,14 @@ export function HomePage() {
                         <a href="#about">서비스 안내</a>
                     </nav>
 
-                    {/* 우측 영역: 숙소 둘러보기 + 로그인/프로필 영역 */}
-                    <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <a className="nav-cta" href="#stays">
                             제주 숙소 둘러보기 <ArrowRight size={16}/>
                         </a>
 
                         {isLoggedIn ? (
-                            <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                                <div style={{position: 'relative'}} ref={dropdownRef}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ position: 'relative' }} ref={dropdownRef}>
                                     <button
                                         type="button"
                                         onClick={() => setIsDropdownOpen((prev) => !prev)}
@@ -371,11 +382,11 @@ export function HomePage() {
                                                 </>
                                             )}
 
-                                            <div style={{height: '1px', backgroundColor: '#f0f0f0', margin: '6px 0'}}/>
+                                            <div style={{ height: '1px', backgroundColor: '#f0f0f0', margin: '6px 0' }}/>
                                             <button
                                                 type="button"
                                                 onClick={handleLogout}
-                                                style={{...dropdownItemStyle, color: '#e53e3e'}}
+                                                style={{ ...dropdownItemStyle, color: '#e53e3e' }}
                                             >
                                                 <LogOut size={16}/> 로그아웃
                                             </button>
@@ -386,7 +397,7 @@ export function HomePage() {
                                 <NotificationBell userRole={userRole} isLoggedIn={isLoggedIn}/>
                             </div>
                         ) : (
-                            <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Link
                                     to="/login"
                                     style={{
@@ -448,7 +459,7 @@ export function HomePage() {
                     </div>
                 </section>
 
-                {/* 검색 패널 */}
+                {/* 검색 패널: 일정 & 인원 & 검색어 */}
                 <section className="search-wrap container" aria-label="숙소 검색">
                     <form
                         className="search-panel"
@@ -456,52 +467,116 @@ export function HomePage() {
                             e.preventDefault();
                             search();
                         }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0' }}
                     >
-                        <div className="search-heading">
-                            <span>나에게 맞는 제주를 찾아보세요</span>
-                            <strong>어디로 떠나실까요?</strong>
+                        {/* 1. 왼쪽 타이틀 영역 (너비 축소) */}
+                        <div className="search-heading" style={{ minWidth: '165px', maxWidth: '175px', paddingRight: '14px', flexShrink: 0 }}>
+                            <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>나에게 맞는 제주를 찾아보세요</span>
+                            <strong style={{ fontSize: '17px', letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>어디로 떠나실까요?</strong>
                         </div>
-                        <label className="search-field">
-                            <MapPin size={21}/>
-                            <span>
-                                지역
+
+                        {/* 2. 일정 선택 필드 (너비 대폭 확보: flex 1.4) */}
+                        <div className="search-field" style={{ flex: '1.4', minWidth: '260px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Calendar size={20} color="#49717a" style={{ flexShrink: 0 }} />
+                            <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}>
+                                <span style={{ fontSize: '12px', color: '#819296', fontWeight: 600 }}>일정</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
+                                    <input
+                                        type="date"
+                                        min={todayStr}
+                                        value={checkIn}
+                                        onClick={(e) => (e.currentTarget as any).showPicker?.()} // 💡 텍스트 클릭 시 달력 팝업 트리거
+                                        onChange={(e) => {
+                                            setCheckIn(e.target.value);
+                                            if (e.target.value >= checkOut) {
+                                                const nextD = new Date(e.target.value);
+                                                nextD.setDate(nextD.getDate() + 1);
+                                                setCheckOut(nextD.toISOString().split('T')[0]);
+                                            }
+                                        }}
+                                        style={{
+                                            border: 'none',
+                                            outline: 'none',
+                                            background: 'transparent',
+                                            fontSize: '13px',
+                                            fontWeight: 700,
+                                            color: '#17343d',
+                                            padding: 0,
+                                            cursor: 'pointer', // 💡 클릭 가능 커서
+                                            flex: 1,
+                                            minWidth: '105px'
+                                        }}
+                                    />
+                                    <span style={{ color: '#94a3b8', fontSize: '12px', flexShrink: 0 }}>~</span>
+                                    <input
+                                        type="date"
+                                        min={checkIn}
+                                        value={checkOut}
+                                        onClick={(e) => (e.currentTarget as any).showPicker?.()} // 💡 텍스트 클릭 시 달력 팝업 트리거
+                                        onChange={(e) => setCheckOut(e.target.value)}
+                                        style={{
+                                            border: 'none',
+                                            outline: 'none',
+                                            background: 'transparent',
+                                            fontSize: '13px',
+                                            fontWeight: 700,
+                                            color: '#17343d',
+                                            padding: 0,
+                                            cursor: 'pointer',
+                                            flex: 1,
+                                            minWidth: '105px'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. 인원 선택 필드 */}
+                        <label className="search-field" style={{ flex: '0.8', minWidth: '130px', padding: '8px 16px' }}>
+                            <Users size={20} color="#49717a" style={{ flexShrink: 0 }} />
+                            <span style={{ width: '100%' }}>
+                                인원
                                 <select
-                                    value={region}
-                                    onChange={(e) => setRegion(e.target.value)}
+                                    value={guests}
+                                    onChange={(e) => setGuests(Number(e.target.value))}
+                                    style={{
+                                        display: 'block',
+                                        border: 'none',
+                                        outline: 'none',
+                                        background: 'transparent',
+                                        fontSize: '14px',
+                                        fontWeight: 700,
+                                        color: '#17343d',
+                                        cursor: 'pointer',
+                                        padding: '4px 0 0',
+                                        width: '100%'
+                                    }}
                                 >
-                                    {regions.map((r) => (
-                                        <option key={r}>{r}</option>
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+                                        <option key={num} value={num}>성인 {num}명</option>
                                     ))}
                                 </select>
                             </span>
                         </label>
-                        <label className="search-field">
-                            <Menu size={20}/>
-                            <span>
-                                숙박 종류
-                                <select value={type} onChange={(e) => setType(e.target.value)}>
-                                    {types.map((t) => (
-                                        <option key={t}>{t}</option>
-                                    ))}
-                                </select>
-                            </span>
-                        </label>
-                        <label className="search-field keyword">
-                            <Search size={21}/>
-                            <span>
+
+                        {/* 4. 검색어 필드 */}
+                        <label className="search-field keyword" style={{ flex: '1', minWidth: '150px', padding: '8px 16px' }}>
+                            <Search size={20} color="#49717a" style={{ flexShrink: 0 }} />
+                            <span style={{ width: '100%' }}>
                                 검색어
                                 <input
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     placeholder="숙소 또는 여행지"
+                                    style={{ width: '100%', fontSize: '14px', fontWeight: 600 }}
                                 />
                             </span>
                         </label>
 
-                        {/* 검색 버튼 그룹 (숙소 검색 + 지도 검색) */}
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <button className="search-button" type="submit">
-                                숙소 검색 <ArrowRight size={18}/>
+                        {/* 5. 검색 버튼 그룹 */}
+                        <div style={{ display: 'flex', gap: '8px', paddingLeft: '12px', flexShrink: 0 }}>
+                            <button className="search-button" type="submit" style={{ padding: '16px 20px', fontSize: '14px', gap: '10px' }}>
+                                숙소 검색 <ArrowRight size={16}/>
                             </button>
                             <button
                                 type="button"
@@ -513,10 +588,12 @@ export function HomePage() {
                                     alignItems: 'center',
                                     gap: '6px',
                                     whiteSpace: 'nowrap',
-                                    cursor: 'pointer'
+                                    cursor: 'pointer',
+                                    padding: '16px 18px',
+                                    fontSize: '14px'
                                 }}
                             >
-                                <MapIcon size={18}/>
+                                <MapIcon size={17}/>
                                 지도 검색
                             </button>
                         </div>
@@ -644,7 +721,7 @@ export function HomePage() {
                         </div>
 
                         {visibleCount < result.length && (
-                            <div style={{textAlign: "center", marginTop: "40px"}}>
+                            <div style={{ textAlign: "center", marginTop: "40px" }}>
                                 <button
                                     type="button"
                                     onClick={handleLoadMore}
@@ -694,7 +771,6 @@ export function HomePage() {
             <Footer/>
             <BookingModal reservation={reservation}/>
 
-            {/* 💡 헤더(전체) or 검색패널(필터링) 상황에 맞게 modalStays 전달 */}
             <StayMapModal
                 isOpen={isMapModalOpen}
                 onClose={() => setIsMapModalOpen(false)}
@@ -704,7 +780,6 @@ export function HomePage() {
     );
 }
 
-// 드롭다운 아이템 공통 인라인 스타일
 const dropdownItemStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
