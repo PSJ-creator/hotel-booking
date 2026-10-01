@@ -55,6 +55,8 @@ dependencies {
     // Redis 및 Redisson 분산 락 라이브러리
     implementation 'org.redisson:redisson:3.27.0'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    // 비밀번호 찾기 이메일 인증용
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
 }
 tasks.named('test') {
     useJUnitPlatform()

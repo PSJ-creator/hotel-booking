@@ -51,6 +51,9 @@ public class SecurityConfig {
                         // 기존 psj의 숙소 조회 API
                         .requestMatchers("/api/v1/stays/**").permitAll()
 
+                        // 비밀번호 찾기 위한 허용 설정
+                        .requestMatchers("/api/v1/members/password/**").permitAll()
+
                         // 그 외 요청은 JWT 인증 필요
                         .anyRequest().authenticated()
                 )
