@@ -13,7 +13,6 @@ public class ReservationDto {
     @Setter
     @NoArgsConstructor
     public static class Request {
-        private Long memberId; // 실무에서는 보통 Security Context(JWT)에서 추출하지만, MVP 테스트를 위해 직접 받습니다.
         private Long roomId;
         private LocalDate checkInDate;
         private LocalDate checkOutDate;

@@ -31,7 +31,6 @@ export function ReservationPage() {
     const [checkOutDate, setCheckOutDate] = useState(tomorrowStr);
     const [guestName, setGuestName] = useState('');
     const [phone, setPhone] = useState('');
-    const [memberId, setMemberId] = useState<number | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
     // 전달된 객실 정보가 없으면 뒤로가기
@@ -61,10 +60,8 @@ export function ReservationPage() {
                 )
             );
             if (decoded.name) setGuestName(decoded.name);
-            // 백엔드 JWT 토큰 생성 시 memberId가 포함되어 있지 않다면 기본 1로 설정하거나 claim 추가 필요
-            setMemberId(decoded.memberId || 1);
         } catch {
-            setMemberId(1);
+
         }
     }, [roomState, navigate]);
 
@@ -101,9 +98,7 @@ export function ReservationPage() {
 
         setSubmitting(true);
         try {
-            // 💡 백엔드 ReservationDto.Request 규격 매핑
             const requestBody = {
-                memberId: memberId || 1,
                 roomId: roomState.roomId,
                 checkInDate: checkInDate,
                 checkOutDate: checkOutDate,
@@ -112,7 +107,7 @@ export function ReservationPage() {
 
             await axios.post('/api/reservations', requestBody, {
                 headers: {
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}` // 이 헤더를 통해 백엔드가 22번 회원을 식별
                 }
             });
 

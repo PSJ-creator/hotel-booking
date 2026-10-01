@@ -767,8 +767,8 @@ footer {
     }
 
     .search-heading {
-        width: 100%;
-        padding: 0 0 12px
+        min-width: 210px;
+        padding-right: 14px;
     }
 
     .search-field {

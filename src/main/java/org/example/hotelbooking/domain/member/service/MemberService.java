@@ -3,6 +3,7 @@ package org.example.hotelbooking.domain.member.service;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbooking.domain.member.repository.MemberRepository;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
@@ -14,6 +15,7 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final MailService mailService;
     private final StringRedisTemplate redisTemplate;
+    private final PasswordEncoder passwordEncoder;
 
     public void sendPasswordResetCode(String email) {
         // 1. 이메일로 회원 정보 조회 (존재 여부 확인)
@@ -67,7 +69,7 @@ public class MemberService {
                 .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
 
         // 💡 실무 주의: Spring Security를 쓰고 계시다면 passwordEncoder.encode(newPassword)로 암호화해야 합니다!
-        member.updatePassword(newPassword);
+        member.updatePassword(passwordEncoder.encode(newPassword));
 
         // 3. 비밀번호 변경이 끝났으므로 합격 티켓 삭제 (재사용 방지)
         redisTemplate.delete(verifiedKey);
