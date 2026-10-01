@@ -7,6 +7,7 @@ import { KakaoCallback } from "./pages/KakaoCallback.tsx";
 import { StayDetailPage } from "./pages/StayDetailPage.tsx";
 import { ReservationPage } from "./pages/ReservationPage.tsx";
 import { FindPasswordPage } from "./pages/FindPasswordPage.tsx";
+import {WishlistPage} from "./pages/WishlistPage.tsx";
 
 function App() {
     return (
@@ -19,6 +20,7 @@ function App() {
                 <Route path="/oauth/callback" element={<KakaoCallback />} />
                 <Route path="/stays/:contentId" element={<StayDetailPage />} />
                 <Route path="/reservation" element={<ReservationPage />} />
+                <Route path="/wishlist" element={<WishlistPage />} />
             </Routes>
         </BrowserRouter>
     );

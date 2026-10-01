@@ -31,4 +31,9 @@ public class AccomLike {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
+    @Builder
+    public AccomLike(Member member, Accommodation accommodation) {
+        this.member = member;
+        this.accommodation = accommodation;
+    }
 }
