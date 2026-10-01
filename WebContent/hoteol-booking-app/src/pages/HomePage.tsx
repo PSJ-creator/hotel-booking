@@ -8,7 +8,7 @@ import {
     User,
     ChevronDown,
     Heart,
-    Map,
+    Map as MapIcon,
     CalendarCheck,
     Settings,
     LogOut,
@@ -23,13 +23,14 @@ import {BookingModal} from "../components/BookingModal";
 import {useHeroSlider} from "../hooks/useHeroSlider";
 import {useReservation} from "../hooks/useReservation";
 import {useStays} from "../hooks/useStays";
-import {destinations, money, regions, types, getLodgingTypeName} from "../data/stays";
+import { destinations, money, regions, types, getLodgingTypeName, fetchStays } from "../data/stays";
 import {useState, useEffect, useRef} from 'react';
 import {Link, useNavigate} from "react-router-dom";
 import {Footer} from "../components/Footer";
 import {HostApplyBanner} from "../components/HostApplyBanner.tsx";
 import {NotificationBell} from '../components/NotificationBell';
-import {KakaoStayMap} from "../components/KakaoMap.tsx";
+import {StayMapModal} from "../components/StayMapModal";
+import type {Stay} from "../types/stay.ts";
 
 const heroTitles = [
     "제주에 머무는 시간,\n여행이 되다",
@@ -53,7 +54,7 @@ export function HomePage() {
         search,
     } = useStays();
 
-    // 화면에 보여줄 숙소 개수 (기본 20개)
+    // 화면에 보여줄 숙소 개수 (기본 18개)
     const [visibleCount, setVisibleCount] = useState(18);
 
     // 로그인 상태 관리 및 드롭다운 상태
@@ -61,17 +62,48 @@ export function HomePage() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [userName, setUserName] = useState("내 계정");
     const [userRole, setUserRole] = useState("ROLE_USER");
-    const [hasApprovedAccommodation, setHasApprovedAccommodation] = useState(false); // 💡 추가
+    const [hasApprovedAccommodation, setHasApprovedAccommodation] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
+    // 지도 모달 관련 상태
+    const [modalStays, setModalStays] = useState<Stay[]>([]);
+    const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+
+    // 💡 1. [검색 패널용] 현재 필터링된 결과로 지도 모달 오픈
+    const handleMapSearch = async () => {
+        const currentScrollY = window.scrollY;
+        search(); // 기존 목록 검색도 트리거 (메인 화면용)
+        window.scrollTo(0, currentScrollY);
+
+        try {
+            // 현재 입력창에 선택된 값으로 직접 조회하여 최신 결과를 즉시 모달에 전달
+            const filteredStays = await fetchStays(region, type, query);
+            setModalStays(filteredStays);
+        } catch {
+            setModalStays(result);
+        }
+
+        setIsMapModalOpen(true);
+    };
+
+    // 💡 2. [헤더 네비게이션용] 필터링 없는 제주도 전체 숙소 지도 모달 오픈
+    const handleOpenAllMap = async () => {
+        try {
+            // 필터 파라미터를 빈 값으로 전달해 전체 목록 조회
+            const allStays = await fetchStays('', '', '');
+            setModalStays(allStays);
+        } catch {
+            setModalStays(result);
+        }
+        setIsMapModalOpen(true);
+    };
+
     // 로그인 여부 및 토큰 기반 닉네임 파싱
-// HomePage.tsx의 useEffect 내부
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token) {
             setIsLoggedIn(true);
             try {
-                // 한글 깨짐 방지 base64 디코딩
                 const base64Payload = token.split('.')[1];
                 const decodedPayload = JSON.parse(
                     decodeURIComponent(
@@ -81,13 +113,11 @@ export function HomePage() {
                             .join('')
                     )
                 );
-                // 이름(Name) 설정
                 if (decodedPayload.name) {
                     setUserName(decodedPayload.name);
                 } else if (decodedPayload.sub) {
                     setUserName(decodedPayload.sub.split('@')[0]);
                 }
-                // 권한(ROLE) 설정
                 if (decodedPayload.role) {
                     setUserRole(decodedPayload.role);
                 }
@@ -98,7 +128,8 @@ export function HomePage() {
             setIsLoggedIn(false);
         }
     }, []);
-    // 💡 호스트 계정일 때 승인 숙소 보유 여부 체크
+
+    // 호스트 계정일 때 승인 숙소 보유 여부 체크
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token && userRole === 'ROLE_HOST') {
@@ -163,20 +194,32 @@ export function HomePage() {
                     </a>
                     <nav className="nav-links">
                         <a href="#destinations">추천 여행지</a>
-                        <a href="#map">숙소 찾기</a>
+                        {/* 💡 헤더의 '지도 찾기': 필터 없이 전체 숙소 표시 */}
+                        <button
+                            type="button"
+                            onClick={handleOpenAllMap}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                font: 'inherit',
+                                color: 'inherit',
+                                cursor: 'pointer',
+                                padding: 0
+                            }}
+                        >
+                            지도 찾기
+                        </button>
                         <a href="#about">서비스 안내</a>
                     </nav>
 
                     {/* 우측 영역: 숙소 둘러보기 + 로그인/프로필 영역 */}
                     <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                        <a className="nav-cta">
+                        <a className="nav-cta" href="#stays">
                             제주 숙소 둘러보기 <ArrowRight size={16}/>
                         </a>
 
-                        {/*로그인된 상태: 유저 드롭다운 메뉴 + 알림 종 아이콘 */}
                         {isLoggedIn ? (
                             <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                                {/* 1. 프로필 드롭다운 영역 */}
                                 <div style={{position: 'relative'}} ref={dropdownRef}>
                                     <button
                                         type="button"
@@ -209,7 +252,6 @@ export function HomePage() {
                                         </div>
                                         <span>{userName}</span>
 
-                                        {/* 💡 권한별 뱃지 표시 */}
                                         {userRole === 'ROLE_HOST' && (
                                             <span style={{
                                                 fontSize: '11px',
@@ -241,7 +283,6 @@ export function HomePage() {
                                         }}/>
                                     </button>
 
-                                    {/* 💡 드롭다운 서브메뉴 */}
                                     {isDropdownOpen && (
                                         <div
                                             style={{
@@ -259,7 +300,6 @@ export function HomePage() {
                                                 flexDirection: 'column',
                                             }}
                                         >
-                                            {/* 1. 일반 사용자 (ROLE_USER) */}
                                             {userRole === 'ROLE_USER' && (
                                                 <>
                                                     <button type="button" onClick={() => handleDummyClick("숙소 위시리스트")}
@@ -268,7 +308,7 @@ export function HomePage() {
                                                     </button>
                                                     <button type="button" onClick={() => handleDummyClick("관광지 위시리스트")}
                                                             style={dropdownItemStyle}>
-                                                        <Map size={16}/> 관광지 위시리스트
+                                                        <MapIcon size={16}/> 관광지 위시리스트
                                                     </button>
                                                     <button type="button" onClick={() => handleDummyClick("예매한 숙소 조회")}
                                                             style={dropdownItemStyle}>
@@ -281,7 +321,6 @@ export function HomePage() {
                                                 </>
                                             )}
 
-                                            {/* 2. 숙소 관리자 (ROLE_HOST) */}
                                             {userRole === 'ROLE_HOST' && (
                                                 <>
                                                     {hasApprovedAccommodation ? (
@@ -315,7 +354,6 @@ export function HomePage() {
                                                 </>
                                             )}
 
-                                            {/* 3. 총괄 관리자 (ROLE_ADMIN) */}
                                             {userRole === 'ROLE_ADMIN' && (
                                                 <>
                                                     <button type="button" onClick={() => handleDummyClick("사이트 관리")}
@@ -333,7 +371,6 @@ export function HomePage() {
                                                 </>
                                             )}
 
-                                            {/* 공통: 구분선 및 로그아웃 */}
                                             <div style={{height: '1px', backgroundColor: '#f0f0f0', margin: '6px 0'}}/>
                                             <button
                                                 type="button"
@@ -346,11 +383,9 @@ export function HomePage() {
                                     )}
                                 </div>
 
-                                {/* 2. 프로필 버튼 우측에 나란히 배치되는 알림 종 컴포넌트 */}
                                 <NotificationBell userRole={userRole} isLoggedIn={isLoggedIn}/>
                             </div>
                         ) : (
-                            /* 미로그인 상태: 로그인 및 회원가입 버튼 */
                             <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
                                 <Link
                                     to="/login"
@@ -412,6 +447,8 @@ export function HomePage() {
                         </div>
                     </div>
                 </section>
+
+                {/* 검색 패널 */}
                 <section className="search-wrap container" aria-label="숙소 검색">
                     <form
                         className="search-panel"
@@ -460,11 +497,33 @@ export function HomePage() {
                                 />
                             </span>
                         </label>
-                        <button className="search-button" type="submit">
-                            숙소 검색 <ArrowRight size={18}/>
-                        </button>
+
+                        {/* 검색 버튼 그룹 (숙소 검색 + 지도 검색) */}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="search-button" type="submit">
+                                숙소 검색 <ArrowRight size={18}/>
+                            </button>
+                            <button
+                                type="button"
+                                className="search-button"
+                                onClick={handleMapSearch}
+                                style={{
+                                    backgroundColor: '#0f766e',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    whiteSpace: 'nowrap',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <MapIcon size={18}/>
+                                지도 검색
+                            </button>
+                        </div>
                     </form>
                 </section>
+
+                {/* 추천 여행지 */}
                 <section id="destinations" className="section container">
                     <div className="section-top">
                         <div>
@@ -492,6 +551,8 @@ export function HomePage() {
                         ))}
                     </div>
                 </section>
+
+                {/* 숙소 목록 */}
                 <section id="stays" className="section stay-section">
                     <div className="container">
                         <div className="section-top">
@@ -613,33 +674,8 @@ export function HomePage() {
                         )}
                     </div>
                 </section>
-                <section id="map" className="section" style={{ backgroundColor: '#ffffff', borderTop: '1px solid #eef2f6', borderBottom: '1px solid #eef2f6' }}>
-                    <div className="container">
-                        <div className="section-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
-                            <div>
-                                <span className="eyebrow">JEJU MAP GUIDE</span>
-                                <h2>제주, 어디로 갈까요?</h2>
-                                <p>
-                                    마커를 클릭하면 숙소 정보와 1박 요금을 확인하고 바로 이동할 수 있습니다.
-                                </p>
-                            </div>
-                            <span className="sample-note" style={{ color: '#0f766e', fontWeight: 600, backgroundColor: '#ccfbf1', padding: '6px 14px', borderRadius: '20px', fontSize: '12px' }}>
-                                실시간 등록 숙소 {result.length}곳 탐색 가능
-                            </span>
-                        </div>
 
-                        {/* 지도 래퍼 카드 (그림자 및 테두리 정돈) */}
-                        <div style={{
-                            borderRadius: '20px',
-                            overflow: 'hidden',
-                            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.06)',
-                            border: '1px solid #e2e8f0',
-                            position: 'relative'
-                        }}>
-                            <KakaoStayMap stays={result} />
-                        </div>
-                    </div>
-                </section>
+                {/* 하단 안내 배너 */}
                 <section id="about" className="bottom-banner">
                     <div className="container">
                         <div>
@@ -657,6 +693,13 @@ export function HomePage() {
             <HostApplyBanner/>
             <Footer/>
             <BookingModal reservation={reservation}/>
+
+            {/* 💡 헤더(전체) or 검색패널(필터링) 상황에 맞게 modalStays 전달 */}
+            <StayMapModal
+                isOpen={isMapModalOpen}
+                onClose={() => setIsMapModalOpen(false)}
+                stays={modalStays}
+            />
         </>
     );
 }
