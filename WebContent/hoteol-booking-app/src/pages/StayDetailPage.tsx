@@ -1,9 +1,22 @@
-import { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import {useEffect, useState, useMemo} from 'react';
+import {useParams, useNavigate} from 'react-router-dom';
 import axios from 'axios';
-import { MapPin, Phone, Clock, Car, CheckCircle2, ChevronLeft, BedDouble, User, Image as ImageIcon, ImageOff, X } from 'lucide-react';
-import { money, getLodgingTypeName } from '../data/stays';
-import { Footer } from '../components/Footer';
+import {
+    MapPin,
+    Phone,
+    Clock,
+    Car,
+    CheckCircle2,
+    ChevronLeft,
+    BedDouble,
+    User,
+    Image as ImageIcon,
+    ImageOff,
+    X,
+    ChevronDown
+} from 'lucide-react';
+import {money, getLodgingTypeName} from '../data/stays';
+import {Footer} from '../components/Footer';
 import {KakaoStayMap} from "../components/KakaoMap.tsx";
 
 interface RoomDto {
@@ -35,15 +48,18 @@ interface StayDetail {
     mapX: string;
     mapY: string;
     hostName: string;
+    businessNo?: string;
     rooms: RoomDto[];
 }
 
+
 export function StayDetailPage() {
-    const { contentId } = useParams<{ contentId: string }>();
+    const {contentId} = useParams<{ contentId: string }>();
     const navigate = useNavigate();
     const [stay, setStay] = useState<StayDetail | null>(null);
     const [loading, setLoading] = useState(true);
-    const [isGalleryOpen, setIsGalleryOpen] = useState(false); // 전체 사진 모달 제어
+    const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+    const [isSellerInfoOpen, setIsSellerInfoOpen] = useState(false);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -90,7 +106,7 @@ export function StayDetailPage() {
 
     if (loading) {
         return (
-            <div style={{ textAlign: 'center', padding: '120px 0', color: '#64748b' }}>
+            <div style={{textAlign: 'center', padding: '120px 0', color: '#64748b'}}>
                 숙소 상세 정보를 불러오는 중입니다...
             </div>
         );
@@ -104,24 +120,36 @@ export function StayDetailPage() {
     const mainImages = allGalleryImages.slice(0, 5);
 
     return (
-        <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh' }}>
+        <div style={{backgroundColor: '#f8fafc', minHeight: '100vh'}}>
             {/* 상단 네비게이션 헤더 */}
-            <header style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 100 }}>
-                <div className="container" style={{ height: '60px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <header style={{
+                backgroundColor: '#ffffff',
+                borderBottom: '1px solid #e2e8f0',
+                position: 'sticky',
+                top: 0,
+                zIndex: 100
+            }}>
+                <div className="container" style={{height: '60px', display: 'flex', alignItems: 'center', gap: '16px'}}>
                     <button
                         type="button"
                         onClick={() => navigate(-1)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
                     >
-                        <ChevronLeft size={24} color="#123f4d" />
+                        <ChevronLeft size={24} color="#123f4d"/>
                     </button>
-                    <span style={{ fontSize: '16px', fontWeight: 600, color: '#123f4d' }}>{stay.title}</span>
+                    <span style={{fontSize: '22px', fontWeight: 600, color: '#123f4d'}}>{stay.title}</span>
                 </div>
             </header>
 
-            <main className="container" style={{ maxWidth: '1050px', margin: '24px auto', padding: '0 16px' }}>
+            <main className="container" style={{maxWidth: '1050px', margin: '24px auto', padding: '0 16px'}}>
                 {/* 1. 상단 5분할 갤러리 섹션 (야놀자 스타일) */}
-                <section style={{ position: 'relative', marginBottom: '24px' }}>
+                <section style={{position: 'relative', marginBottom: '24px'}}>
                     {mainImages.length > 0 ? (
                         <div
                             style={{
@@ -227,49 +255,90 @@ export function StayDetailPage() {
                                 backdropFilter: 'blur(4px)'
                             }}
                         >
-                            <ImageIcon size={16} />
+                            <ImageIcon size={16}/>
                             전체 사진 ({allGalleryImages.length})
                         </button>
                     )}
                 </section>
 
                 {/* 2. 숙소 헤더 정보 */}
-                <section style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '28px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f766e', backgroundColor: '#ccfbf1', padding: '3px 8px', borderRadius: '6px' }}>
+                <section style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '16px',
+                    padding: '28px',
+                    border: '1px solid #e2e8f0',
+                    marginBottom: '24px'
+                }}>
+                    <span style={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: '#0f766e',
+                        backgroundColor: '#ccfbf1',
+                        padding: '3px 8px',
+                        borderRadius: '6px'
+                    }}>
                         {getLodgingTypeName(stay.lodgingType)}
                     </span>
-                    <h1 style={{ fontSize: '26px', color: '#0f172a', margin: '12px 0 8px 0' }}>{stay.title}</h1>
-                    <p style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '14px', margin: '0 0 16px 0' }}>
-                        <MapPin size={17} /> {stay.addr} {stay.zipcode && `(${stay.zipcode})`}
+                    <h1 style={{fontSize: '26px', color: '#0f172a', margin: '12px 0 8px 0'}}>{stay.title}</h1>
+                    <p style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        color: '#64748b',
+                        fontSize: '14px',
+                        margin: '0 0 16px 0'
+                    }}>
+                        <MapPin size={17}/> {stay.addr} {stay.zipcode && `(${stay.zipcode})`}
                     </p>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', padding: '16px', backgroundColor: '#f1f5f9', borderRadius: '12px', fontSize: '13px', color: '#334155' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Clock size={16} color="#0f766e" />
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '12px',
+                        padding: '16px',
+                        backgroundColor: '#f1f5f9',
+                        borderRadius: '12px',
+                        fontSize: '13px',
+                        color: '#334155'
+                    }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                            <Clock size={16} color="#0f766e"/>
                             <span>체크인 {stay.checkinTime || '15:00'} ~ 체크아웃 {stay.checkoutTime || '11:00'}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Phone size={16} color="#0f766e" />
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                            <Phone size={16} color="#0f766e"/>
                             <span>{stay.tel || '안내 번호 없음'}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Car size={16} color="#0f766e" />
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                            <Car size={16} color="#0f766e"/>
                             <span>주차: {stay.parking || '주차 가능 여부 문의'}</span>
                         </div>
                     </div>
                 </section>
 
                 {/* 3. 숙소 소개 및 편의시설 */}
-                <section style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '28px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                    <h2 style={{ fontSize: '18px', color: '#0f172a', marginBottom: '14px' }}>숙소 소개</h2>
-                    <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.7', whiteSpace: 'pre-line', margin: '0 0 24px 0' }}>
+                <section style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '16px',
+                    padding: '28px',
+                    border: '1px solid #e2e8f0',
+                    marginBottom: '24px'
+                }}>
+                    <h2 style={{fontSize: '18px', color: '#0f172a', marginBottom: '14px'}}>숙소 소개</h2>
+                    <p style={{
+                        color: '#475569',
+                        fontSize: '14px',
+                        lineHeight: '1.7',
+                        whiteSpace: 'pre-line',
+                        margin: '0 0 24px 0'
+                    }}>
                         {stay.overview || '등록된 숙소 상세 소개글이 없습니다.'}
                     </p>
 
                     {facilities.length > 0 && (
                         <>
-                            <h3 style={{ fontSize: '15px', color: '#0f172a', marginBottom: '12px' }}>편의시설 및 서비스</h3>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            <h3 style={{fontSize: '15px', color: '#0f172a', marginBottom: '12px'}}>편의시설 및 서비스</h3>
+                            <div style={{display: 'flex', flexWrap: 'wrap', gap: '8px'}}>
                                 {facilities.map((fac, idx) => (
                                     <span
                                         key={idx}
@@ -285,49 +354,118 @@ export function StayDetailPage() {
                                             color: '#334155'
                                         }}
                                     >
-                                        <CheckCircle2 size={13} color="#0f766e" /> {fac}
+                                        <CheckCircle2 size={13} color="#0f766e"/> {fac}
                                     </span>
                                 ))}
                             </div>
                         </>
                     )}
-                </section>
-
-                {/* 4. 객실 선택 (룸 사진 갤러리 + 상세 정보) */}
-                <section style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '28px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                    <h2 style={{ fontSize: '18px', color: '#0f172a', marginBottom: '20px' }}>객실 선택</h2>
-
-                    {stay.rooms && stay.rooms.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-                            {stay.rooms.map((room) => (
-                                <RoomCard key={room.roomId} room={room} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div style={{ textAlign: 'center', padding: '36px 0', color: '#94a3b8', fontSize: '14px' }}>
-                            등록된 개별 객실 정보가 없습니다.
-                        </div>
-                    )}
-                </section>
-
-                {/* 5. 호스트 및 위치 정보 */}
-                <section style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px 28px', border: '1px solid #e2e8f0' }}>
-                    <h2 style={{ fontSize: '16px', color: '#0f172a', marginBottom: '8px' }}>호스트 정보 및 위치</h2>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 4px 0' }}>호스트 파트너: <strong>{stay.hostName}</strong></p>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>상세 주소: {stay.addr}</p>
+                    {/*숙소 위치 정보*/}
+                    <h3 style={{fontSize: '15px', color: '#0f172a', marginBottom: '12px'}}>찾아오시는 길</h3>
                     {stay.mapX && stay.mapY && (
-                        <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                        <div style={{borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0'}}>
                             <KakaoStayMap
                                 stays={[{ ...stay, basePrice: 0 } as any]}
+                                mode="detail"
                                 level={4}
                                 height="360px"
                             />
                         </div>
                     )}
                 </section>
+
+                {/* 4. 객실 선택 (룸 사진 갤러리 + 상세 정보) */}
+                <section style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '16px',
+                    padding: '28px',
+                    border: '1px solid #e2e8f0',
+                    marginBottom: '24px'
+                }}>
+                    <h2 style={{fontSize: '18px', color: '#0f172a', marginBottom: '20px'}}>객실 선택</h2>
+
+                    {stay.rooms && stay.rooms.length > 0 ? (
+                        <div style={{display: 'flex', flexDirection: 'column', gap: '28px'}}>
+                            {stay.rooms.map((room) => (
+                                <RoomCard
+                                    key={room.roomId}
+                                    room={room}
+                                    stayTitle={stay.title}
+                                    stayAddr={stay.addr}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div style={{textAlign: 'center', padding: '36px 0', color: '#94a3b8', fontSize: '14px'}}>
+                            등록된 개별 객실 정보가 없습니다.
+                        </div>
+                    )}
+                </section>
+
+                {/* 5. 호스트 및 위치 정보 */}
+                <section style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '16px',
+                    padding: '20px 28px',
+                    border: '1px solid #e2e8f0',
+                    transition: 'all 0.2s ease',
+                }}>
+                    <button
+                        type="button"
+                        onClick={() => setIsSellerInfoOpen((prev) => !prev)}
+                        style={{
+                            width: '100%',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <h2 style={{ fontSize: '16px', color: '#0f172a', margin: 0, fontWeight: 700 }}>
+                            판매자 정보
+                        </h2>
+                        <ChevronDown
+                            size={20}
+                            color="#64748b"
+                            style={{
+                                transform: isSellerInfoOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                transition: 'transform 0.2s ease',
+                            }}
+                        />
+                    </button>
+
+                    {isSellerInfoOpen && (
+                        <div style={{
+                            marginTop: '16px',
+                            paddingTop: '16px',
+                            borderTop: '1px solid #f1f5f9',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                            fontSize: '13px',
+                            color: '#64748b'
+                        }}>
+                            <p style={{ margin: 0 }}>
+                                상호명 / 대표자: <strong style={{ color: '#1e293b' }}>{stay.hostName}</strong>
+                            </p>
+                            <p style={{ margin: 0 }}>
+                                사업자등록번호: {stay.businessNo || '등록된 사업자번호 없음'}
+                            </p>
+                            <p style={{ margin: 0 }}>
+                                연락처: {stay.tel || '안내 번호 없음'}
+                            </p>
+                            <p style={{ margin: 0 }}>
+                                사업자주소: {stay.addr}
+                            </p>
+                        </div>
+                    )}
+                </section>
             </main>
 
-            <Footer />
+            <Footer/>
 
             {/* 6. 전체 사진 보기 모달 (카테고리 탭 제외, 깔끔한 3열 그리드) */}
             {isGalleryOpen && (
@@ -372,8 +510,9 @@ export function StayDetailPage() {
                                 borderBottom: '1px solid #e2e8f0'
                             }}
                         >
-                            <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a', fontWeight: 700 }}>
-                                전체 사진 <span style={{ color: '#0f766e', fontSize: '15px' }}>({allGalleryImages.length})</span>
+                            <h3 style={{margin: 0, fontSize: '18px', color: '#0f172a', fontWeight: 700}}>
+                                전체 사진 <span
+                                style={{color: '#0f766e', fontSize: '15px'}}>({allGalleryImages.length})</span>
                             </h3>
                             <button
                                 type="button"
@@ -388,7 +527,7 @@ export function StayDetailPage() {
                                     color: '#64748b'
                                 }}
                             >
-                                <X size={22} />
+                                <X size={22}/>
                             </button>
                         </div>
 
@@ -435,10 +574,33 @@ export function StayDetailPage() {
     );
 }
 
+
 // 룸 카드 컴포넌트
-function RoomCard({ room }: { room: RoomDto }) {
+function RoomCard({ room, stayTitle, stayAddr }: { room: RoomDto; stayTitle: string; stayAddr: string }) {
     const hasImages = room.imageUrls && room.imageUrls.length > 0;
     const [activeImage, setActiveImage] = useState<string>(hasImages ? room.imageUrls[0] : '');
+    const navigate = useNavigate();
+
+    const handleReserveClick = () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+            alert('로그인이 필요한 서비스입니다.');
+            navigate('/login');
+            return;
+        }
+        navigate('/reservation', {
+            state: {
+                roomId: room.roomId,
+                roomTitle: room.roomTitle,
+                pricePerNight: room.pricePerNight,
+                roomImage: room.imageUrls && room.imageUrls.length > 0 ? room.imageUrls[0] : '',
+                stayTitle: stayTitle,
+                stayAddr: stayAddr,
+            }
+        });
+    };
+
+
 
     useEffect(() => {
         if (hasImages) {
@@ -460,7 +622,7 @@ function RoomCard({ room }: { room: RoomDto }) {
         >
             {hasImages ? (
                 <>
-                    <div style={{ position: 'relative', width: '100%', height: '280px', backgroundColor: '#ffffff' }}>
+                    <div style={{position: 'relative', width: '100%', height: '280px', backgroundColor: '#ffffff'}}>
                         <img
                             src={activeImage}
                             alt={room.roomTitle}
@@ -488,7 +650,7 @@ function RoomCard({ room }: { room: RoomDto }) {
                                     gap: '4px',
                                 }}
                             >
-                                <ImageIcon size={12} />
+                                <ImageIcon size={12}/>
                                 {room.imageUrls.indexOf(activeImage) + 1} / {room.imageUrls.length}
                             </div>
                         )}
@@ -526,7 +688,7 @@ function RoomCard({ room }: { room: RoomDto }) {
                                     <img
                                         src={imgUrl}
                                         alt={`thumbnail-${idx}`}
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        style={{width: '100%', height: '100%', objectFit: 'cover'}}
                                     />
                                 </button>
                             ))}
@@ -548,14 +710,14 @@ function RoomCard({ room }: { room: RoomDto }) {
                         color: '#94a3b8',
                     }}
                 >
-                    <ImageOff size={28} color="#94a3b8" />
-                    <span style={{ fontSize: '13px', fontWeight: 500 }}>
+                    <ImageOff size={28} color="#94a3b8"/>
+                    <span style={{fontSize: '13px', fontWeight: 500}}>
                         객실 사진 정보를 제공하지 않는 숙소입니다.
                     </span>
                 </div>
             )}
 
-            <div style={{ padding: '20px' }}>
+            <div style={{padding: '20px'}}>
                 <div
                     style={{
                         display: 'flex',
@@ -566,27 +728,28 @@ function RoomCard({ room }: { room: RoomDto }) {
                     }}
                 >
                     <div>
-                        <h3 style={{ fontSize: '18px', color: '#0f172a', margin: '0 0 8px 0', fontWeight: 700 }}>
+                        <h3 style={{fontSize: '18px', color: '#0f172a', margin: '0 0 8px 0', fontWeight: 700}}>
                             {room.roomTitle}
                         </h3>
-                        <div style={{ display: 'flex', gap: '14px', color: '#64748b', fontSize: '13px' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <BedDouble size={15} color="#0f766e" /> {room.roomSize ? room.roomSize : '기본 객실'}
+                        <div style={{display: 'flex', gap: '14px', color: '#64748b', fontSize: '13px'}}>
+                            <span style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
+                                <BedDouble size={15} color="#0f766e"/> {room.roomSize ? room.roomSize : '기본 객실'}
                             </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <User size={15} color="#0f766e" /> 기준 {room.roomBaseCount || '2'}인 / 최대 {room.roomMaxCount || '4'}인
+                            <span style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
+                                <User size={15}
+                                      color="#0f766e"/> 기준 {room.roomBaseCount || '2'}인 / 최대 {room.roomMaxCount || '4'}인
                             </span>
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: '12px', color: '#94a3b8', display: 'block' }}>1박 기준</span>
-                            <strong style={{ fontSize: '22px', color: '#0f766e' }}>{money(room.pricePerNight)}</strong>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
+                        <div style={{textAlign: 'right'}}>
+                            <span style={{fontSize: '12px', color: '#94a3b8', display: 'block'}}>1박 기준</span>
+                            <strong style={{fontSize: '22px', color: '#0f766e'}}>{money(room.pricePerNight)}</strong>
                         </div>
                         <button
                             type="button"
-                            onClick={() => alert(`[${room.roomTitle}] 예약 기능으로 연결됩니다.`)}
+                            onClick={handleReserveClick}
                             style={{
                                 padding: '12px 24px',
                                 backgroundColor: '#123f4d',
