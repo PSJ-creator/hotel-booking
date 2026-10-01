@@ -22,23 +22,24 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
             "  AND (:region IS NULL OR :region = '' OR :region = '전체' OR a.addr LIKE %:region%) " +
             "  AND (:type IS NULL OR :type = '' OR :type = '전체' OR a.lodgingType LIKE %:type%) " +
             "  AND (:query IS NULL OR :query = '' OR a.title LIKE %:query% OR a.addr LIKE %:query%) " +
-            // 💡 날짜가 없는 전체 조회일 때는 통과, 날짜가 들어왔을 때는 :stayDays > 0 조건과 일자별 잔여 재고를 엄격히 검증
-            "  AND (CAST(:checkIn AS date) IS NULL OR CAST(:checkOut AS date) IS NULL OR (" +
-            "       :stayDays > 0 AND EXISTS (" +
+
+            // 💡 수정된 부분: CAST 삭제하고 stayDays 파라미터를 스위치로 사용!
+            "  AND (:stayDays = 0L OR EXISTS (" +
             "           SELECT 1 FROM Room r " +
             "           WHERE r.accommodation = a " +
             "             AND (SELECT COUNT(ri) FROM RoomInventory ri " +
             "                  WHERE ri.room = r " +
             "                    AND ri.inventoryDate >= :checkIn " +
             "                    AND ri.inventoryDate < :checkOut " +
-            "                    AND ri.availableCount > 0) = :stayDays))) " +
+            "                    AND ri.availableCount > 0) = :stayDays)) " +
+
             "ORDER BY a.contentId DESC")
     List<StayResponseDto> searchStays(
             @Param("region") String region,
             @Param("type") String type,
             @Param("query") String query,
-            @Param("checkIn") LocalDate checkIn,
-            @Param("checkOut") LocalDate checkOut,
+            @Param("checkIn") java.time.LocalDate checkIn,
+            @Param("checkOut") java.time.LocalDate checkOut,
             @Param("stayDays") Long stayDays
     );
 
