@@ -37,7 +37,7 @@ public class Member {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
-    // Member.java 클래스 맨 아래에 추가
+
     @Builder
     public Member(String email, String password, String name, Role role, String businessNo) {
         this.email = email;
@@ -51,5 +51,7 @@ public class Member {
         this.businessNo = businessNo;
         this.role = role;
     }
-
+    public void updatePassword(String newPassword){
+        this.password = newPassword;
+    }
 }
