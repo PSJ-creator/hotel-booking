@@ -21,11 +21,19 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
             "  AND (:region IS NULL OR :region = '' OR :region = '전체' OR a.addr LIKE %:region%) " +
             "  AND (:type IS NULL OR :type = '' OR :type = '전체' OR a.lodgingType LIKE %:type%) " +
             "  AND (:query IS NULL OR :query = '' OR a.title LIKE %:query% OR a.addr LIKE %:query%) " +
+            // 💡 핵심 추가: 선택한 날짜에 방이 1개 이상 남아있는 객실을 보유한 숙소만 필터링
+            "  AND (CAST(:date AS date) IS NULL OR EXISTS (" +
+            "       SELECT 1 FROM RoomInventory ri " +
+            "       WHERE ri.room.accommodation = a " +
+            "         AND ri.inventoryDate = :date " +
+            "         AND ri.availableCount > 0)) " +
+
             "ORDER BY a.contentId DESC")
     List<StayResponseDto> searchStays(
             @Param("region") String region,
             @Param("type") String type,
-            @Param("query") String query
+            @Param("query") String query,
+            @Param("date") java.time.LocalDate date // 💡 날짜 파라미터 추가
     );
     // 숙소 생성시 시퀀스 생성
     @Query(value = "SELECT SEQ_HOST_ACCOM.NEXTVAL FROM DUAL", nativeQuery = true)
