@@ -25,10 +25,11 @@ public class StayController {
             @RequestParam(value = "region", required = false) String region,
             @RequestParam(value = "type", required = false) String type,
             @RequestParam(value = "query", required = false) String query,
-            @RequestParam(value = "checkIn", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") java.time.LocalDate checkIn,   // 💡 [신규 추가]
-            @RequestParam(value = "checkOut", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") java.time.LocalDate checkOut  // 💡 [신규 추가]
+            @RequestParam(value = "checkIn", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") java.time.LocalDate checkIn,
+            @RequestParam(value = "checkOut", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") java.time.LocalDate checkOut,
+            @RequestParam(value = "guests", required = false) Integer guests // 💡 [추가]
     ) {
-        List<StayResponseDto> list = stayService.getStays(region, type, query, checkIn, checkOut);
+        List<StayResponseDto> list = stayService.getStays(region, type, query, checkIn, checkOut, guests);
         return ResponseEntity.ok(list);
     }
 

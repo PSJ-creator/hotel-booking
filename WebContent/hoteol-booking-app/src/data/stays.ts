@@ -75,11 +75,11 @@ export const fetchStays = async (
     region?: string,
     type?: string,
     query?: string,
-    // date?: string // 💡 [기존 단일 date 주석 처리]
-    checkIn?: string,  // 💡 [신규 추가]
-    checkOut?: string  // 💡 [신규 추가]
+    checkIn?: string,
+    checkOut?: string,
+    guests?: number // 💡 추가
 ): Promise<Stay[]> => {
- const params: Record<string, string> = {};
+ const params: Record<string, string | number> = {};
 
  const regionKeyword = mapRegionToKeyword(region || '');
  if (regionKeyword) params.region = regionKeyword;
@@ -88,10 +88,9 @@ export const fetchStays = async (
  if (typeKeyword) params.type = typeKeyword;
 
  if (query && query.trim()) params.query = query.trim();
-
- // 💡 [신규 추가]: checkIn, checkOut 파라미터 전달
  if (checkIn && checkIn.trim()) params.checkIn = checkIn.trim();
  if (checkOut && checkOut.trim()) params.checkOut = checkOut.trim();
+ if (guests && guests > 0) params.guests = guests; // 💡 추가
 
  const response = await axios.get<Stay[]>('/api/v1/stays', { params });
  return response.data;

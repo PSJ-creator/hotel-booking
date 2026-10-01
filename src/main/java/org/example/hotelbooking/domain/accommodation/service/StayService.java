@@ -27,7 +27,7 @@ public class StayService {
     private final RoomImageRepository roomImageRepository;
 
     // 💡 [신규 교체]: checkIn, checkOut 수신 및 박수 계산 후 Repository 전달
-    public List<StayResponseDto> getStays(String region, String type, String query, java.time.LocalDate checkIn, java.time.LocalDate checkOut) {
+    public List<StayResponseDto> getStays(String region, String type, String query, java.time.LocalDate checkIn, java.time.LocalDate checkOut, Integer guests) {
         Long stayDays = 0L;
         if (checkIn != null && checkOut != null && checkOut.isAfter(checkIn)) {
             stayDays = java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut);
@@ -36,7 +36,7 @@ public class StayService {
             checkOut = null;
         }
 
-        return accommodationRepository.searchStays(region, type, query, checkIn, checkOut, stayDays);
+        return accommodationRepository.searchStays(region, type, query, checkIn, checkOut, stayDays, guests);
     }
 
     public StayDetailResponseDto getStayDetail(String contentId) {

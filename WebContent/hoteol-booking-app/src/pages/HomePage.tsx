@@ -31,6 +31,7 @@ import { HostApplyBanner } from "../components/HostApplyBanner.tsx";
 import { NotificationBell } from '../components/NotificationBell';
 import { StayMapModal } from "../components/StayMapModal";
 import type { Stay } from "../types/stay.ts";
+import {fetchMyWishlist, toggleAccommodationLike} from "../api/stays.ts";
 
 const heroTitles = [
     "제주에 머무는 시간,\n여행이 되다",
@@ -86,12 +87,11 @@ export function HomePage() {
     const handleMapSearch = async () => {
         const currentScrollY = window.scrollY;
 
-        // 💡 [신규 교체]: checkIn, checkOut을 함께 전달
-        search(checkIn, checkOut);
+        search(checkIn, checkOut, guests); // 💡 guests 전달
         window.scrollTo(0, currentScrollY);
 
         try {
-            const filteredStays = await fetchStays(region, type, query, checkIn, checkOut);
+            const filteredStays = await fetchStays(region, type, query, checkIn, checkOut, guests); // 💡 guests 전달
             setModalStays(filteredStays);
         } catch {
             setModalStays(result);
@@ -114,6 +114,8 @@ export function HomePage() {
         }
         setIsMapModalOpen(true);
     };
+
+
 
     // 로그인 여부 및 토큰 기반 닉네임 파싱
     useEffect(() => {
@@ -184,10 +186,52 @@ export function HomePage() {
         alert(`[${menuName}] 기능은 준비 중입니다.`);
         setIsDropdownOpen(false);
     };
+    const [likedContentIds, setLikedContentIds] = useState<Set<string>>(new Set());
 
+    // 💡 로그인 상태일 때 찜 목록 동기화
+    useEffect(() => {
+        const token = localStorage.getItem('accessToken');
+        if (token && isLoggedIn) {
+            fetchMyWishlist()
+                .then((data) => {
+                    setLikedContentIds(new Set(data.map((item) => item.contentId)));
+                })
+                .catch((err) => console.error("위시리스트 로딩 실패:", err));
+        } else {
+            setLikedContentIds(new Set());
+        }
+    }, [isLoggedIn]);
+
+    // 💡 찜 토글 핸들러 함수
+    const handleToggleWishlist = async (e: React.MouseEvent, contentId: string) => {
+        // ⚠️ 필수: 숙소 상세 모달이 열리지 않도록 이벤트 버블링 차단
+        e.stopPropagation();
+
+        if (!isLoggedIn) {
+            alert("로그인이 필요한 기능입니다.");
+            navigate("/login");
+            return;
+        }
+
+        try {
+            const res = await toggleAccommodationLike(contentId);
+            setLikedContentIds((prev) => {
+                const next = new Set(prev);
+                if (res.liked) {
+                    next.add(contentId);
+                } else {
+                    next.delete(contentId);
+                }
+                return next;
+            });
+        } catch {
+            alert("위시리스트 처리 중 오류가 발생했습니다.");
+        }
+    };
     useEffect(() => {
         setVisibleCount(18);
     }, [region, type, query]);
+
 
     const handleLoadMore = () => {
         setVisibleCount((prev) => prev + 18);
@@ -315,8 +359,14 @@ export function HomePage() {
                                         >
                                             {userRole === 'ROLE_USER' && (
                                                 <>
-                                                    <button type="button" onClick={() => handleDummyClick("숙소 위시리스트")}
-                                                            style={dropdownItemStyle}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsDropdownOpen(false);
+                                                            navigate('/wishlist');
+                                                        }}
+                                                        style={dropdownItemStyle}
+                                                    >
                                                         <Heart size={16}/> 숙소 위시리스트
                                                     </button>
                                                     <button type="button" onClick={() => handleDummyClick("관광지 위시리스트")}
@@ -467,7 +517,7 @@ export function HomePage() {
                         className="search-panel"
                         onSubmit={(e) => {
                             e.preventDefault();
-                            search(checkIn, checkOut); // 💡 [신규 교체]: 선택한 checkIn, checkOut 전달
+                            search(checkIn, checkOut, guests);
                         }}
                         style={{ display: 'flex', alignItems: 'center', gap: '0' }}
                     >
@@ -677,49 +727,90 @@ export function HomePage() {
                             </div>
                         </div>
                         <div className="stay-grid">
-                            {result.slice(0, visibleCount).map((s) => (
-                                <article className="stay-card" key={s.contentId}>
-                                    <button
-                                        className="stay-photo"
-                                        onClick={() => open(s)}
-                                        aria-label={`${s.title} 자세히 보기`}
-                                        style={{
-                                            backgroundImage: `url(${s.firstImage || s.firstImage2 || "/jeju-stays.png"})`,
-                                            backgroundSize: "cover",
-                                            backgroundPosition: "center",
-                                            backgroundRepeat: "no-repeat",
-                                        }}
-                                    >
-                                        <span className="photo-tag">
-                                            {getLodgingTypeName(s.lodgingType)}
-                                        </span>
-                                    </button>
-                                    <div className="stay-info">
-                                        <div className="stay-location">
-                                            <MapPin size={15}/>
-                                            {s.addr?.includes("서귀포") ? "서귀포시" : "제주시"}
-                                        </div>
-                                        <h3>{s.title}</h3>
-                                        <p>
-                                            {s.overview
-                                                ? `${s.overview.slice(0, 80)}...`
-                                                : "편안한 휴식을 제공하는 제주 숙소입니다."}
-                                        </p>
-                                        <div className="stay-bottom">
-                                            <div>
-                                                <strong>{money(s.basePrice)}</strong>
-                                                <small> / 1박 기준가</small>
-                                            </div>
-                                            <button
-                                                onClick={() => open(s)}
-                                                aria-label={`${s.title} 예약 정보 보기`}
+                            {result.slice(0, visibleCount).map((s) => {
+                                const isLiked = likedContentIds.has(s.contentId);
+
+                                return (
+                                    <article className="stay-card" key={s.contentId}>
+                                        <button
+                                            className="stay-photo"
+                                            onClick={() => open(s)}
+                                            aria-label={`${s.title} 자세히 보기`}
+                                            style={{
+                                                backgroundImage: `url(${s.firstImage || s.firstImage2 || "/jeju-stays.png"})`,
+                                                backgroundSize: "cover",
+                                                backgroundPosition: "center",
+                                                backgroundRepeat: "no-repeat",
+                                                position: "relative",
+                                            }}
+                                        >
+                                            {/* 기존 숙박 종류 태그 */}
+                                            <span className="photo-tag">
+                        {getLodgingTypeName(s.lodgingType)}
+                    </span>
+
+                                            {/* 💡 우측 상단 찜 토글 버튼 */}
+                                            <div
+                                                onClick={(e) => handleToggleWishlist(e, s.contentId)}
+                                                role="button"
+                                                aria-label="위시리스트 토글"
+                                                style={{
+                                                    position: "absolute",
+                                                    top: "12px",
+                                                    right: "12px",
+                                                    width: "36px",
+                                                    height: "36px",
+                                                    borderRadius: "50%",
+                                                    backgroundColor: "rgba(255, 255, 255, 0.88)",
+                                                    backdropFilter: "blur(4px)",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    cursor: "pointer",
+                                                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+                                                    zIndex: 2,
+                                                    transition: "transform 0.15s ease",
+                                                }}
+                                                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+                                                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1.0)")}
                                             >
-                                                <ArrowRight size={19}/>
-                                            </button>
+                                                <Heart
+                                                    size={19}
+                                                    fill={isLiked ? "#ef4444" : "none"}
+                                                    color={isLiked ? "#ef4444" : "#64748b"}
+                                                    strokeWidth={isLiked ? 2 : 1.8}
+                                                />
+                                            </div>
+                                        </button>
+
+                                        {/* 하단 숙소 정보 영역 (기존 유지) */}
+                                        <div className="stay-info">
+                                            <div className="stay-location">
+                                                <MapPin size={15}/>
+                                                {s.addr?.includes("서귀포") ? "서귀포시" : "제주시"}
+                                            </div>
+                                            <h3>{s.title}</h3>
+                                            <p>
+                                                {s.overview
+                                                    ? `${s.overview.slice(0, 80)}...`
+                                                    : "편안한 휴식을 제공하는 제주 숙소입니다."}
+                                            </p>
+                                            <div className="stay-bottom">
+                                                <div>
+                                                    <strong>{money(s.basePrice)}</strong>
+                                                    <small> / 1박 기준가</small>
+                                                </div>
+                                                <button
+                                                    onClick={() => open(s)}
+                                                    aria-label={`${s.title} 예약 정보 보기`}
+                                                >
+                                                    <ArrowRight size={19}/>
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                </article>
-                            ))}
+                                    </article>
+                                );
+                            })}
                         </div>
 
                         {visibleCount < result.length && (

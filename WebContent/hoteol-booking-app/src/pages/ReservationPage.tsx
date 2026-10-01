@@ -12,23 +12,25 @@ interface ReservationState {
     roomImage: string;
     stayTitle: string;
     stayAddr: string;
+    checkIn?: string;
+    checkOut?: string;
 }
 
-export function ReservationPage() {
-    const location = useLocation();
-    const navigate = useNavigate();
-    const roomState = location.state as ReservationState;
+    export function ReservationPage() {
+        const navigate = useNavigate();
+        const location = useLocation();
+        const roomState = location.state as ReservationState;
 
-    // 오늘 날짜 및 내일 날짜 계산 (기본값)
-    const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-    const tomorrowStr = useMemo(() => {
-        const d = new Date();
-        d.setDate(d.getDate() + 1);
-        return d.toISOString().split('T')[0];
-    }, []);
+        const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+        const tomorrowStr = useMemo(() => {
+            const d = new Date();
+            d.setDate(d.getDate() + 1);
+            return d.toISOString().split('T')[0];
+        }, []);
 
-    const [checkInDate, setCheckInDate] = useState(todayStr);
-    const [checkOutDate, setCheckOutDate] = useState(tomorrowStr);
+        // 💡 넘어온 날짜가 유효하면 해당 날짜를, 없으면 기본 오늘/내일 설정
+        const [checkInDate, setCheckInDate] = useState(roomState?.checkIn || todayStr);
+        const [checkOutDate, setCheckOutDate] = useState(roomState?.checkOut || tomorrowStr);
     const [guestName, setGuestName] = useState('');
     const [phone, setPhone] = useState('');
     const [submitting, setSubmitting] = useState(false);
