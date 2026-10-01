@@ -74,7 +74,10 @@ export const mapTypeToKeyword = (type: string): string => {
 export const fetchStays = async (
     region?: string,
     type?: string,
-    query?: string
+    query?: string,
+    // date?: string // 💡 [기존 단일 date 주석 처리]
+    checkIn?: string,  // 💡 [신규 추가]
+    checkOut?: string  // 💡 [신규 추가]
 ): Promise<Stay[]> => {
  const params: Record<string, string> = {};
 
@@ -85,6 +88,10 @@ export const fetchStays = async (
  if (typeKeyword) params.type = typeKeyword;
 
  if (query && query.trim()) params.query = query.trim();
+
+ // 💡 [신규 추가]: checkIn, checkOut 파라미터 전달
+ if (checkIn && checkIn.trim()) params.checkIn = checkIn.trim();
+ if (checkOut && checkOut.trim()) params.checkOut = checkOut.trim();
 
  const response = await axios.get<Stay[]>('/api/v1/stays', { params });
  return response.data;
