@@ -10,6 +10,7 @@ import { FindPasswordPage } from "./pages/FindPasswordPage.tsx";
 import {WishlistPage} from "./pages/WishlistPage.tsx";
 import { PaymentSuccessPage } from "./pages/PaymentSuccessPage.tsx";
 import {ProfileEditPage} from "./pages/ProfileEditPage.tsx";
+import {MyReservationsPage} from "./pages/MyReservationsPage.tsx";
 
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
                 <Route path="/wishlist" element={<WishlistPage />} />
                 <Route path="/profile" element={<ProfileEditPage />} />
                 <Route path="/payment/success" element={<PaymentSuccessPage />} />
+                <Route path="/my-reservations" element={<MyReservationsPage />} />
             </Routes>
         </BrowserRouter>
     );
