@@ -54,6 +54,9 @@ public class SecurityConfig {
                         // 비밀번호 찾기 위한 허용 설정
                         .requestMatchers("/api/v1/members/password/**").permitAll()
 
+                        // 토스페이먼츠 클라이언트 키 조회 허용
+                        .requestMatchers("/api/v1/payments/client-key").permitAll()
+
                         // 그 외 요청은 JWT 인증 필요
                         .anyRequest().authenticated()
                 )

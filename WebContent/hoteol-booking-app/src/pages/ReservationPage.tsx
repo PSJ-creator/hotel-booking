@@ -5,9 +5,6 @@ import { loadPaymentWidget } from '@tosspayments/payment-widget-sdk';
 import { money } from '../data/stays';
 import { Footer } from '../components/Footer';
 
-// 💡 테스트 클라이언트 키
-const TOSS_CLIENT_KEY = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
-
 interface ReservationState {
     roomId: number;
     roomTitle: string;
@@ -75,22 +72,37 @@ export function ReservationPage() {
     // 💡 토스 결제 위젯 렌더링 로직
     useEffect(() => {
         (async () => {
-            // 회원 식별자(고객 ID)를 랜덤 생성하거나 이메일을 해싱해서 넣습니다 (여기서는 랜덤)
-            const customerKey = "customer_" + new Date().getTime();
-            const paymentWidget = await loadPaymentWidget(TOSS_CLIENT_KEY, customerKey);
+            try {
+                // 1. 백엔드(application-secret.properties)에서 클라이언트 키 조회
+                const res = await fetch('/api/v1/payments/client-key');
+                const data = await res.json();
+                const clientKey = data?.clientKey;
 
-            // 결제 수단 위젯 렌더링
-            const paymentMethodsWidget = paymentWidget.renderPaymentMethods(
-                "#payment-widget",
-                { value: totalPrice },
-                { variantKey: "DEFAULT" }
-            );
+                if (!clientKey) {
+                    console.error('토스 클라이언트 키를 불러오지 못했습니다. application-secret.properties 설정을 확인하세요.');
+                    return;
+                }
 
-            // 약관 동의 위젯 렌더링
-            paymentWidget.renderAgreement('#agreement', { variantKey: "AGREEMENT" });
+                // 2. 받아온 키로 토스페이먼츠 위젯 초기화
+                const customerKey = "customer_" + new Date().getTime();
+                const paymentWidget = await loadPaymentWidget(clientKey, customerKey);
 
-            paymentWidgetRef.current = paymentWidget;
-            paymentMethodsWidgetRef.current = paymentMethodsWidget;
+                // 결제 수단 위젯 렌더링
+                const paymentMethodsWidget = paymentWidget.renderPaymentMethods(
+                    "#payment-widget",
+                    { value: totalPrice },
+                    { variantKey: "DEFAULT" }
+                );
+
+                // 약관 동의 위젯 렌더링
+                paymentWidget.renderAgreement('#agreement', { variantKey: "AGREEMENT" });
+
+                paymentWidgetRef.current = paymentWidget;
+                paymentMethodsWidgetRef.current = paymentMethodsWidget;
+
+            } catch (err) {
+                console.error("결제 위젯 로딩 실패:", err);
+            }
         })();
     }, []);
 
