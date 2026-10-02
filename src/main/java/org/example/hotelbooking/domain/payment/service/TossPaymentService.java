@@ -2,6 +2,7 @@ package org.example.hotelbooking.domain.payment.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -18,8 +19,15 @@ public class TossPaymentService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // 💡 테스트 시크릿 키
-    private final String TOSS_SECRET_KEY = "***REMOVED***";
+    @Value("${toss.secret.key}")
+    private String tossSecretKey;
+
+    @Value("${toss.client.key:}")
+    private String tossClientKey;
+
+    public String getTossClientKey() {
+        return tossClientKey;
+    }
 
     // 1. 결제 최종 승인 API 호출
     public void confirmPayment(String paymentKey, String orderId, Integer amount) {
@@ -68,7 +76,7 @@ public class TossPaymentService {
     // 토스페이먼츠 Basic Auth 헤더 생성 (시크릿키 뒤에 콜론(:)을 붙여서 Base64 인코딩)
     private HttpHeaders getHeaders() {
         HttpHeaders headers = new HttpHeaders();
-        String encodedAuth = Base64.getEncoder().encodeToString((TOSS_SECRET_KEY + ":").getBytes(StandardCharsets.UTF_8));
+        String encodedAuth = Base64.getEncoder().encodeToString((tossSecretKey + ":").getBytes(StandardCharsets.UTF_8));
         headers.setBasicAuth(encodedAuth);
         headers.setContentType(MediaType.APPLICATION_JSON);
         return headers;
