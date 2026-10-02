@@ -26,4 +26,15 @@ public interface RoomInventoryRepository extends JpaRepository<RoomInventory, Lo
             @Param("contentId") Long contentId,
             @Param("date") LocalDate date
     );
+
+    // 특정 숙소(String contentId)의 체크인 ~ 체크아웃 구간 객실별 재고 조회
+    @Query("SELECT ri FROM RoomInventory ri " +
+            "WHERE ri.room.accommodation.contentId = :contentId " +
+            "  AND ri.inventoryDate >= :checkIn " +
+            "  AND ri.inventoryDate < :checkOut")
+    List<RoomInventory> findByContentIdAndDateRange(
+            @Param("contentId") String contentId,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut
+    );
 }

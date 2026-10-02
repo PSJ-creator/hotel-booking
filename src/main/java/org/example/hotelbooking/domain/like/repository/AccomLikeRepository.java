@@ -22,7 +22,11 @@ public interface AccomLikeRepository extends JpaRepository<AccomLike, Long> {
             "a.contentId, a.host.memberId, a.title, a.lodgingType, a.tel, a.zipcode, a.addr, " +
             "a.checkinTime, a.checkoutTime, a.roomCount, a.roomType, a.parking, a.subFacility, " +
             "a.overview, a.firstImage, a.firstImage2, a.mapX, a.mapY, " +
-            "COALESCE((SELECT MIN(r.pricePerNight) FROM Room r WHERE r.accommodation = a), 0)) " +
+            "COALESCE((SELECT MIN(r.pricePerNight) FROM Room r WHERE r.accommodation = a), 0), " +
+            "COALESCE((SELECT SUM(ri.availableCount) FROM RoomInventory ri JOIN ri.room r " +
+            "          WHERE r.accommodation = a " +
+            "            AND ri.inventoryDate = :checkIn " +
+            "            AND (:guests IS NULL OR :guests <= 0 OR CAST(COALESCE(r.roomMaxCount, '0') AS integer) >= :guests)), 0L)) " +
             "FROM AccomLike al " +
             "JOIN al.accommodation a " +
             "WHERE al.member.memberId = :memberId " +

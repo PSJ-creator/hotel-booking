@@ -21,6 +21,7 @@ export type  Stay= {
   mapX?: string;
   mapY?: string;
   basePrice: number;       // 객실 최저가 (원화)
+  remainingRooms?: number; // 잔여 객실 수
 };
 
 export type Room = {

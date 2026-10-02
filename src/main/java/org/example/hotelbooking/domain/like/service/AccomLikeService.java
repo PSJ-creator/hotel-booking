@@ -70,8 +70,8 @@ public class AccomLikeService {
         if (checkIn != null && checkOut != null && checkOut.isAfter(checkIn)) {
             stayDays = java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut);
         } else {
-            checkIn = null;
-            checkOut = null;
+            checkIn = LocalDate.now();
+            checkOut = LocalDate.now();
         }
 
         return accomLikeRepository.findWishlistStaysByMemberIdAndDates(member.getMemberId(), checkIn, checkOut, stayDays, guests);

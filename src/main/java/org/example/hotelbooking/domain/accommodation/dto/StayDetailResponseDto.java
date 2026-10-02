@@ -42,10 +42,13 @@ public class StayDetailResponseDto {
         private String roomBaseCount;
         private String roomMaxCount;
         private Integer pricePerNight;
+        private Integer availableCount;
         private List<String> imageUrls;
     }
 
-    public static StayDetailResponseDto of(Accommodation a, List<Room> rooms, Map<Long, List<RoomImage>> roomImagesMap) {
+    public static StayDetailResponseDto of(Accommodation a, List<Room> rooms, Map<Long, List<RoomImage>> roomImagesMap, Map<Long, Integer> roomAvailableMap) {
+
+
         return StayDetailResponseDto.builder()
                 .contentId(a.getContentId())
                 .title(a.getTitle())
@@ -76,6 +79,10 @@ public class StayDetailResponseDto {
                             .map(RoomImage::getImageUrl)
                             .toList();
 
+                    Integer available = roomAvailableMap != null
+                            ? roomAvailableMap.getOrDefault(r.getRoomId(), 0)
+                            : 0;
+
                     return RoomDto.builder()
                             .roomId(r.getRoomId())
                             .roomTitle(r.getRoomTitle())
@@ -83,6 +90,7 @@ public class StayDetailResponseDto {
                             .roomBaseCount(r.getRoomBaseCount())
                             .roomMaxCount(r.getRoomMaxCount())
                             .pricePerNight(r.getPricePerNight())
+                            .availableCount(available)
                             .imageUrls(urls)
                             .build();
                 }).toList())

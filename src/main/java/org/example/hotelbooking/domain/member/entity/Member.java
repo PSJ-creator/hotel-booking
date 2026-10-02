@@ -54,4 +54,13 @@ public class Member {
     public void updatePassword(String newPassword){
         this.password = newPassword;
     }
+
+    public void updateInfo(String name) {
+        this.name = name;
+    }
+
+    public void downgradeToUser(Role userRole) {
+        this.role = userRole;
+        this.businessNo = null; // 사업자번호 초기화
+    }
 }
