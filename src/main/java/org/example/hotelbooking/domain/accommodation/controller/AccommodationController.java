@@ -4,12 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.example.hotelbooking.domain.accommodation.dto.AccommodationDto;
 import org.example.hotelbooking.domain.accommodation.dto.AccommodationResponse;
 import org.example.hotelbooking.domain.accommodation.service.AccommodationService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/accommodations")
@@ -17,6 +19,15 @@ import java.util.List;
 public class AccommodationController {
 
     private final AccommodationService accommodationService;
+
+    @Value("${kakao.map.key:}")
+    private String kakaoMapKey;
+
+    // 카카오 지도 JavaScript 키 조회 API
+    @GetMapping("/map-key")
+    public ResponseEntity<Map<String, String>> getKakaoMapKey() {
+        return ResponseEntity.ok(Map.of("mapKey", kakaoMapKey));
+    }
 
     // 기존에 만드신 지도 기반 숙소 조회 API (유지)
     @GetMapping
