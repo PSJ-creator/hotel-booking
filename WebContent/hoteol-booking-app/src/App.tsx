@@ -11,6 +11,9 @@ import {WishlistPage} from "./pages/WishlistPage.tsx";
 import { PaymentSuccessPage } from "./pages/PaymentSuccessPage.tsx";
 import {ProfileEditPage} from "./pages/ProfileEditPage.tsx";
 import {MyReservationsPage} from "./pages/MyReservationsPage.tsx";
+import {HostReservationsPage} from "./pages/HostReservationsPage.tsx";
+import {TourDetailPage} from "./pages/TourDetailPage.tsx";
+import {TourWishlistPage} from "./pages/TourWishlistPage.tsx";
 
 
 function App() {
@@ -28,6 +31,9 @@ function App() {
                 <Route path="/profile" element={<ProfileEditPage />} />
                 <Route path="/payment/success" element={<PaymentSuccessPage />} />
                 <Route path="/my-reservations" element={<MyReservationsPage />} />
+                <Route path="/host/reservations" element={<HostReservationsPage />} />
+                <Route path="/tours/:contentId" element={<TourDetailPage />} />
+                <Route path="/tour-wishlist" element={<TourWishlistPage />} />
             </Routes>
         </BrowserRouter>
     );
