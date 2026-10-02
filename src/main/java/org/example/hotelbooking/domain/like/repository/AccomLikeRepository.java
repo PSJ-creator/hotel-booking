@@ -30,22 +30,21 @@ public interface AccomLikeRepository extends JpaRepository<AccomLike, Long> {
             "FROM AccomLike al " +
             "JOIN al.accommodation a " +
             "WHERE al.member.memberId = :memberId " +
-            // 💡 1. 인원 조건: :guests가 들어오면 객실들 중 roomMaxCount >= :guests 인 객실이 반드시 1개 이상 존재해야 함
+            // 💡 1. 인원 조건
             "  AND (:guests IS NULL OR :guests <= 0 OR EXISTS (" +
             "       SELECT 1 FROM Room r " +
             "       WHERE r.accommodation = a " +
-            "         AND CAST(r.roomMaxCount AS integer) >= :guests)) " +
-            // 💡 2. 날짜 조건: 날짜가 들어오면 해당 인원을 수용하면서 stayDays 동안 재고가 매일 유지되는 객실이 존재해야 함
-            "  AND (CAST(:checkIn AS date) IS NULL OR CAST(:checkOut AS date) IS NULL OR (" +
-            "       :stayDays > 0 AND EXISTS (" +
-            "           SELECT 1 FROM Room r " +
-            "           WHERE r.accommodation = a " +
-            "             AND (:guests IS NULL OR :guests <= 0 OR CAST(r.roomMaxCount AS integer) >= :guests) " +
-            "             AND (SELECT COUNT(ri) FROM RoomInventory ri " +
-            "                  WHERE ri.room = r " +
-            "                    AND ri.inventoryDate >= :checkIn " +
-            "                    AND ri.inventoryDate < :checkOut " +
-            "                    AND ri.availableCount > 0) = :stayDays))) " +
+            "         AND CAST(COALESCE(r.roomMaxCount, '0') AS integer) >= :guests)) " +
+            // 💡 2. 날짜 조건 (:stayDays = 0L 이면 전체 찜 숙소 그대로 반환!)
+            "  AND (:stayDays = 0L OR EXISTS (" +
+            "       SELECT 1 FROM Room r " +
+            "       WHERE r.accommodation = a " +
+            "         AND (:guests IS NULL OR :guests <= 0 OR CAST(COALESCE(r.roomMaxCount, '0') AS integer) >= :guests) " +
+            "         AND (SELECT COUNT(ri) FROM RoomInventory ri " +
+            "              WHERE ri.room = r " +
+            "                AND ri.inventoryDate >= :checkIn " +
+            "                AND ri.inventoryDate < :checkOut " +
+            "                AND ri.availableCount > 0) = :stayDays)) " +
             "ORDER BY al.createdAt DESC")
     List<StayResponseDto> findWishlistStaysByMemberIdAndDates(
             @Param("memberId") Long memberId,
