@@ -23,10 +23,19 @@ public class AccommodationController {
     @Value("${kakao.map.key:}")
     private String kakaoMapKey;
 
+    @Value("${openweather.api.key:${VITE_OPENWEATHER_API_KEY:}}")
+    private String openWeatherApiKey;
+
     // 카카오 지도 JavaScript 키 조회 API
     @GetMapping("/map-key")
     public ResponseEntity<Map<String, String>> getKakaoMapKey() {
         return ResponseEntity.ok(Map.of("mapKey", kakaoMapKey));
+    }
+
+    // OpenWeatherMap API 키 조회 API
+    @GetMapping("/weather-key")
+    public ResponseEntity<Map<String, String>> getWeatherKey() {
+        return ResponseEntity.ok(Map.of("apiKey", openWeatherApiKey));
     }
 
     // 기존에 만드신 지도 기반 숙소 조회 API (유지)

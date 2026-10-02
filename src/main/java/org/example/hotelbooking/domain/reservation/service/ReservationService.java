@@ -63,14 +63,21 @@ public class ReservationService {
     }
     // 기존 createReservation 아래에 추가
     @Transactional
-    public void cancelReservation(Long reservationId, Long memberId) {
+    public void cancelReservation(Long reservationId, Long requesterMemberId) {
         // 1. 예약 정보 조회
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 예약입니다."));
 
-        // 2. 본인의 예약인지 검증
-        if (!reservation.getMember().getMemberId().equals(memberId)) {
-            throw new IllegalArgumentException("본인의 예약만 취소할 수 있습니다.");
+        Long guestMemberId = reservation.getMember().getMemberId();
+        Member host = reservation.getRoom().getAccommodation().getHost();
+        Long hostMemberId = (host != null) ? host.getMemberId() : null;
+
+        boolean isGuest = guestMemberId.equals(requesterMemberId);
+        boolean isHostOwner = hostMemberId != null && hostMemberId.equals(requesterMemberId);
+
+        // 2. 본인의 예약인지 검증 및 취소, 숙소 관리자 예약 취소
+        if (!isGuest && !isHostOwner) {
+            throw new IllegalArgumentException("예약자 본인 또는 해당 숙소의 관리자만 예약을 취소할 수 있습니다.");
         }
 
         // 3. 예약 상태 취소로 변경 (Dirty Checking)
@@ -102,6 +109,20 @@ public class ReservationService {
                     boolean hasReview = reviewRepository.existsByReservation_ReservationId(r.getReservationId());
                     return ReservationDto.MyReservationResponse.of(r, hasReview);
                 })
+                .toList();
+    }
+
+    // 💡 숙소 관리자(호스트)용 내 숙소에 접수된 예약 목록 조회
+    @Transactional(readOnly = true)
+    public List<ReservationDto.HostReservationResponse> getHostReservations(String email) {
+        Member host = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        List<Reservation> reservations = reservationRepository
+                .findReservationsByHostId(host.getMemberId());
+
+        return reservations.stream()
+                .map(ReservationDto.HostReservationResponse::from)
                 .toList();
     }
 }

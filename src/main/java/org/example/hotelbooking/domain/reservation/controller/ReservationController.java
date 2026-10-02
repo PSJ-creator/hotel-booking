@@ -57,6 +57,13 @@ public class ReservationController {
     ) {
         return ResponseEntity.ok(reservationService.getMyReservations(email));
     }
+    // 숙소 관리자(호스트): 내 숙소에 접수된 예약 내역 목록 조회 API
+    @GetMapping("/host")
+    public ResponseEntity<List<ReservationDto.HostReservationResponse>> getHostReservations(
+            @AuthenticationPrincipal String email
+    ) {
+        return ResponseEntity.ok(reservationService.getHostReservations(email));
+    }
 
     // 예약 취소 API
     @PatchMapping("/{reservationId}/cancel")

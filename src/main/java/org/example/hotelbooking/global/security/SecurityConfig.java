@@ -48,8 +48,11 @@ public class SecurityConfig {
                         // 숙소 조회
                         .requestMatchers("/api/v1/accommodations/**").permitAll()
 
-                        // 기존 psj의 숙소 조회 API
+                        // 숙소 조회 API
                         .requestMatchers("/api/v1/stays/**").permitAll()
+
+                        // 관광지 조회 api
+                        .requestMatchers("/api/v1/tours/**").permitAll()
 
                         // 비밀번호 찾기 위한 허용 설정
                         .requestMatchers("/api/v1/members/password/**").permitAll()

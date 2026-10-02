@@ -29,9 +29,12 @@ import { Footer } from "../components/Footer";
 import { HostApplyBanner } from "../components/HostApplyBanner.tsx";
 import { NotificationBell } from '../components/NotificationBell';
 import { StayMapModal } from "../components/StayMapModal";
-import { StayCard } from "../components/StayCard"; // 💡 공통 카드 컴포넌트 임포트
+import { TourMapModal } from "../components/TourMapModal"; // 💡 관광 지도 모달 임포트
+import { StayCard } from "../components/StayCard";
 import type { Stay } from "../types/stay.ts";
 import { fetchMyWishlist, toggleAccommodationLike } from "../api/stays.ts";
+import { fetchTours, type TourSummary } from "../api/tours.ts"; // 💡 관광지 조회 API 임포트
+import { WeatherWidget } from "../components/WeatherWidget.tsx";
 
 const heroTitles = [
     "제주에 머무는 시간,\n여행이 되다",
@@ -79,9 +82,13 @@ export function HomePage() {
     const [hasApprovedAccommodation, setHasApprovedAccommodation] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // 지도 모달 관련 상태
+    // 1. 숙소 지도 모달 관련 상태 (검색창의 '지도 검색' 버튼용 유지)
     const [modalStays, setModalStays] = useState<Stay[]>([]);
     const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+
+    // 2. 💡 관광 지도 모달 관련 상태 (상단 헤더의 '관광 지도' 버튼용)
+    const [modalTours, setModalTours] = useState<TourSummary[]>([]);
+    const [isTourMapModalOpen, setIsTourMapModalOpen] = useState(false);
 
     // 스크롤 시 검색창 상단 고정(Sticky) 상태 감지
     const [isSearchPinned, setIsSearchPinned] = useState(false);
@@ -94,7 +101,7 @@ export function HomePage() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    // 1. [검색 패널용] 지도 모달 오픈
+    // 1. [검색 패널용] 숙소 지도 검색 모달 오픈 (그대로 유지!)
     const handleMapSearch = async () => {
         const currentScrollY = window.scrollY;
 
@@ -111,19 +118,16 @@ export function HomePage() {
         setIsMapModalOpen(true);
     };
 
-    // 2. [헤더 네비게이션용] 전체 숙소 지도 모달 오픈
-    const handleOpenAllMap = async () => {
-        setRegion('전체 지역');
-        setType('전체 숙박');
-        setQuery('');
-
+    // 2. 💡 [헤더 네비게이션용] 제주 관광 지도 모달 오픈 (숙소 대신 관광지 표시!)
+    const handleOpenTourMap = async () => {
         try {
-            const allStays = await fetchStays('', '', '');
-            setModalStays(allStays);
-        } catch {
-            setModalStays(result);
+            const allTours = await fetchTours();
+            setModalTours(allTours);
+        } catch (err) {
+            console.error('관광지 목록 로딩 실패:', err);
+            setModalTours([]);
         }
-        setIsMapModalOpen(true);
+        setIsTourMapModalOpen(true);
     };
 
     // 로그인 여부 및 토큰 기반 닉네임 파싱
@@ -260,23 +264,33 @@ export function HomePage() {
                             제주 야호<small>JEJU YA-HO</small>
                         </span>
                     </a>
-                    <nav className="nav-links">
-                        <a href="#destinations">추천 여행지</a>
+                    <nav className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+                        <a href="#destinations" style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+                            추천 여행지
+                        </a>
                         <button
                             type="button"
-                            onClick={handleOpenAllMap}
+                            onClick={handleOpenTourMap}
                             style={{
                                 background: 'none',
                                 border: 'none',
                                 font: 'inherit',
                                 color: 'inherit',
                                 cursor: 'pointer',
-                                padding: 0
+                                padding: 0,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                lineHeight: 1,
+                                verticalAlign: 'middle'
                             }}
                         >
-                            지도 찾기
+                            관광 지도
                         </button>
-                        <a href="#about">서비스 안내</a>
+                        <a href="#about" style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+                            서비스 안내
+                        </a>
+
+                        <WeatherWidget />
                     </nav>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -378,8 +392,14 @@ export function HomePage() {
                                                     >
                                                         <Heart size={16} /> 숙소 위시리스트
                                                     </button>
-                                                    <button type="button" onClick={() => handleDummyClick("관광지 위시리스트")}
-                                                            style={dropdownItemStyle}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsDropdownOpen(false);
+                                                            navigate('/tour-wishlist');
+                                                        }}
+                                                        style={dropdownItemStyle}
+                                                    >
                                                         <MapIcon size={16} /> 관광지 위시리스트
                                                     </button>
                                                     <button
@@ -399,9 +419,14 @@ export function HomePage() {
                                                 <>
                                                     {hasApprovedAccommodation ? (
                                                         <>
-                                                            <button type="button"
-                                                                    onClick={() => handleDummyClick("예약 내역 관리")}
-                                                                    style={dropdownItemStyle}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setIsDropdownOpen(false);
+                                                                    navigate('/host/reservations');
+                                                                }}
+                                                                style={dropdownItemStyle}
+                                                            >
                                                                 <CalendarCheck size={16} /> 예약 내역 관리
                                                             </button>
                                                             <button type="button"
@@ -658,7 +683,7 @@ export function HomePage() {
                             </span>
                         </label>
 
-                        {/* 5. 검색 버튼 그룹 */}
+                        {/* 5. 검색 버튼 그룹 (숙소 검색 + 숙소 지도 검색 둘 다 그대로 유지!) */}
                         <div style={{ display: 'flex', gap: '8px', paddingLeft: '12px', flexShrink: 0 }}>
                             <button className="search-button" type="submit"
                                     style={{ padding: '16px 20px', fontSize: '14px', gap: '10px' }}>
@@ -761,7 +786,7 @@ export function HomePage() {
                             </div>
                         </div>
 
-                        {/* 💡 공통 StayCard 컴포넌트 사용 */}
+                        {/* 공통 StayCard 컴포넌트 사용 */}
                         <div className="stay-grid">
                             {result.slice(0, visibleCount).map((s) => (
                                 <StayCard
@@ -825,10 +850,18 @@ export function HomePage() {
             <Footer />
             <BookingModal reservation={reservation} />
 
+            {/* 1. 검색창의 '지도 검색' 클릭 시 열리는 숙소 지도 모달 */}
             <StayMapModal
                 isOpen={isMapModalOpen}
                 onClose={() => setIsMapModalOpen(false)}
                 stays={modalStays}
+            />
+
+            {/* 2. 💡 상단 헤더의 '관광 지도' 클릭 시 열리는 관광지 지도 모달 */}
+            <TourMapModal
+                isOpen={isTourMapModalOpen}
+                onClose={() => setIsTourMapModalOpen(false)}
+                tours={modalTours}
             />
         </>
     );
