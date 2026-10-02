@@ -43,7 +43,7 @@ export async function fetchTourDetail(contentId: string): Promise<TourDetail> {
 export async function toggleTourLike(contentId: string): Promise<{ liked: boolean; message: string }> {
     const token = localStorage.getItem('accessToken');
     const res = await axios.post<{ liked: boolean; message: string }>(
-        `/api/v1/likes/tours/${contentId}`,
+        `/api/v1/tours/likes/${contentId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -52,7 +52,7 @@ export async function toggleTourLike(contentId: string): Promise<{ liked: boolea
 
 export async function fetchMyTourWishlist(): Promise<TourSummary[]> {
     const token = localStorage.getItem('accessToken');
-    const res = await axios.get<TourSummary[]>('/api/v1/likes/tours/my', {
+    const res = await axios.get<TourSummary[]>('/api/v1/tours/likes/my', {
         headers: { Authorization: `Bearer ${token}` }
     });
     return res.data;
