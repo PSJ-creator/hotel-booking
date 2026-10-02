@@ -382,8 +382,14 @@ export function HomePage() {
                                                             style={dropdownItemStyle}>
                                                         <MapIcon size={16} /> 관광지 위시리스트
                                                     </button>
-                                                    <button type="button" onClick={() => handleDummyClick("예매한 숙소 조회")}
-                                                            style={dropdownItemStyle}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsDropdownOpen(false);
+                                                            navigate('/my-reservations');
+                                                        }}
+                                                        style={dropdownItemStyle}
+                                                    >
                                                         <CalendarCheck size={16} /> 예매한 숙소 조회
                                                     </button>
                                                 </>
