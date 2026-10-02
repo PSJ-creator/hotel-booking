@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -21,6 +22,11 @@ public class PaymentController {
     private final TossPaymentService tossPaymentService;
     private final ReservationLockFacade reservationLockFacade;
     private final MemberRepository memberRepository;
+
+    @GetMapping("/client-key")
+    public ResponseEntity<Map<String, String>> getClientKey() {
+        return ResponseEntity.ok(Map.of("clientKey", tossPaymentService.getTossClientKey()));
+    }
 
     @PostMapping("/confirm")
     public ResponseEntity<String> confirmPayment(

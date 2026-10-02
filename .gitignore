@@ -11,6 +11,11 @@ pnpm-debug.log*
 lerna-debug.log*
 application.properties
 application-dev.properties
+application-secret.properties
+**/application-secret.properties
+.env
+*.env
+!.env.example
 
 ### Logs ###
 logs
