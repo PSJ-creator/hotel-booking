@@ -14,8 +14,6 @@ interface KakaoStayMapProps {
     mode?: 'search' | 'detail'; // 💡 모드 구분 (기본값: 'search')
 }
 
-const KAKAO_MAP_KEY = '***REMOVED***';
-
 export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }: KakaoStayMapProps) {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -23,26 +21,54 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
 
     // 1. 카카오 지도 SDK 동적 주입
     useEffect(() => {
-        const existingScript = document.getElementById('kakao-map-sdk');
-        if (existingScript) {
-            if (window.kakao && window.kakao.maps) {
-                setIsLoaded(true);
-            } else {
-                existingScript.addEventListener('load', () => setIsLoaded(true));
+        let isMounted = true;
+
+        const initKakaoMap = async () => {
+            const existingScript = document.getElementById('kakao-map-sdk');
+            if (existingScript) {
+                if (window.kakao && window.kakao.maps) {
+                    if (isMounted) setIsLoaded(true);
+                } else {
+                    existingScript.addEventListener('load', () => {
+                        if (isMounted) setIsLoaded(true);
+                    });
+                }
+                return;
             }
-            return;
-        }
 
-        const script = document.createElement('script');
-        script.id = 'kakao-map-sdk';
-        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_KEY}&libraries=clusterer&autoload=false`;
-        script.async = true;
+            // 백엔드(application-secret.properties)에서 카카오 맵 키 조회
+            let appKey = import.meta.env.VITE_KAKAO_MAP_KEY || '';
+            if (!appKey) {
+                try {
+                    const res = await fetch('/api/v1/accommodations/map-key');
+                    if (res.ok) {
+                        const data = await res.json();
+                        appKey = data.mapKey;
+                    }
+                } catch (e) {
+                    console.error('카카오 지도 키를 가져오지 못했습니다.', e);
+                }
+            }
 
-        script.onload = () => {
-            setIsLoaded(true);
+            if (!appKey || !isMounted) return;
+
+            const script = document.createElement('script');
+            script.id = 'kakao-map-sdk';
+            script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&libraries=clusterer&autoload=false`;
+            script.async = true;
+
+            script.onload = () => {
+                if (isMounted) setIsLoaded(true);
+            };
+
+            document.head.appendChild(script);
         };
 
-        document.head.appendChild(script);
+        initKakaoMap();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     // 2. 지도 초기화 및 마커 렌더링
