@@ -3,8 +3,10 @@ package org.example.hotelbooking.domain.reservation.service;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbooking.domain.member.entity.Member;
 import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.reservation.dto.ReservationDto;
 import org.example.hotelbooking.domain.reservation.entity.Reservation;
 import org.example.hotelbooking.domain.reservation.repository.ReservationRepository;
+import org.example.hotelbooking.domain.review.repository.ReviewRepository;
 import org.example.hotelbooking.domain.room.entity.Room;
 import org.example.hotelbooking.domain.room.entity.RoomInventory;
 import org.example.hotelbooking.domain.room.repository.RoomInventoryRepository;
@@ -23,6 +25,7 @@ public class ReservationService {
     private final RoomInventoryRepository roomInventoryRepository;
     private final MemberRepository memberRepository;
     private final RoomRepository roomRepository;
+    private final ReviewRepository reviewRepository;
 
     @Transactional
     public void createReservation(Long memberId, Long roomId, LocalDate checkIn, LocalDate checkOut, Integer totalPrice) {
@@ -83,5 +86,22 @@ public class ReservationService {
         for (RoomInventory inventory : inventories) {
             inventory.increaseCount(1);
         }
+    }
+
+    // 내 예약 목록 조회
+    @Transactional(readOnly = true)
+    public List<ReservationDto.MyReservationResponse> getMyReservations(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        List<Reservation> reservations = reservationRepository
+                .findByMember_MemberIdOrderByCreatedAtDesc(member.getMemberId());
+
+        return reservations.stream()
+                .map(r -> {
+                    boolean hasReview = reviewRepository.existsByReservation_ReservationId(r.getReservationId());
+                    return ReservationDto.MyReservationResponse.of(r, hasReview);
+                })
+                .toList();
     }
 }

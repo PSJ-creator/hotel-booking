@@ -11,14 +11,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
 @RestController
-@RequestMapping("/api/reservations")
+@RequestMapping("/api/v1/reservations")
 @RequiredArgsConstructor
 public class ReservationController {
 
     private final ReservationLockFacade reservationLockFacade;
     private final MemberRepository memberRepository;
+    private final ReservationService reservationService;
 
     @PostMapping
     public ResponseEntity<ReservationDto.Response> createReservation(
@@ -46,16 +49,26 @@ public class ReservationController {
 
         return ResponseEntity.ok(response);
     }
+
+    // 내 예약 내역 목록 조회 API
+    @GetMapping("/my")
+    public ResponseEntity<List<ReservationDto.MyReservationResponse>> getMyReservations(
+            @AuthenticationPrincipal String email
+    ) {
+        return ResponseEntity.ok(reservationService.getMyReservations(email));
+    }
+
     // 예약 취소 API
     @PatchMapping("/{reservationId}/cancel")
     public ResponseEntity<String> cancelReservation(
             @PathVariable Long reservationId,
-            @RequestBody java.util.Map<String, Long> request // MVP용 임시 맵 (원래는 별도 DTO나 Security 사용)
+            @AuthenticationPrincipal String email
     ) {
-        Long memberId = request.get("memberId");
-        log.info("예약 취소 요청 수신 - ReservationId: {}, MemberId: {}", reservationId, memberId);
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
 
-        reservationLockFacade.cancelReservationWithLock(reservationId, memberId);
+        log.info("예약 취소 요청 수신 - ReservationId: {}, MemberId: {}", reservationId, member.getMemberId());
+        reservationLockFacade.cancelReservationWithLock(reservationId, member.getMemberId());
 
         return ResponseEntity.ok("예약이 성공적으로 취소되었습니다.");
     }
