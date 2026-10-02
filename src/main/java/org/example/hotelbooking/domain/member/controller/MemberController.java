@@ -1,8 +1,11 @@
 package org.example.hotelbooking.domain.member.controller; // 패키지 경로는 본인 프로젝트에 맞게 수정하세요.
 
 import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.member.dto.AuthDto;
+import org.example.hotelbooking.domain.member.dto.MemberDto;
 import org.example.hotelbooking.domain.member.service.MemberService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -43,5 +46,28 @@ public class MemberController {
         memberService.resetPassword(email, newPassword);
 
         return ResponseEntity.ok("비밀번호가 성공적으로 변경되었습니다.");
+    }
+
+    // 💡 내 정보 조회
+    @GetMapping("/me")
+    public ResponseEntity<MemberDto.Response> getMyProfile(@AuthenticationPrincipal String email) {
+        return ResponseEntity.ok(memberService.getMyProfile(email));
+    }
+
+    // 💡 회원정보 수정
+    @PutMapping("/me")
+    public ResponseEntity<AuthDto.TokenResponse> updateProfile(
+            @AuthenticationPrincipal String email,
+            @RequestBody MemberDto.UpdateRequest request
+    ) {
+        String newToken = memberService.updateProfile(email, request);
+        return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
+    }
+
+    // 💡 숙소 관리자 탈퇴 (일반 유저 전환)
+    @PatchMapping("/me/downgrade-host")
+    public ResponseEntity<AuthDto.TokenResponse> downgradeHost(@AuthenticationPrincipal String email) {
+        String newToken = memberService.downgradeHost(email);
+        return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
     }
 }

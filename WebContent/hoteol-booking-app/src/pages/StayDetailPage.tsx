@@ -14,7 +14,8 @@ import {
     ImageOff,
     X,
     ChevronDown,
-    Heart
+    Heart,
+    Calendar
 } from 'lucide-react';
 import { money, getLodgingTypeName } from '../data/stays';
 import { Footer } from '../components/Footer';
@@ -28,6 +29,7 @@ interface RoomDto {
     roomBaseCount: string;
     roomMaxCount: string;
     pricePerNight: number;
+    availableCount?: number; // 💡 잔여 객실 수
     imageUrls: string[];
 }
 
@@ -59,10 +61,17 @@ export function StayDetailPage() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // 💡 WishlistPage 또는 HomePage에서 전달된 날짜 수신
+    const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const tomorrowStr = useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
+    }, []);
+
+    // 이전 페이지에서 넘어온 날짜가 있으면 사용하고, 없으면 오늘~내일 기본값 세팅
     const incomingDates = (location.state as { checkIn?: string; checkOut?: string }) || {};
-    const selectedCheckIn = incomingDates.checkIn || '';
-    const selectedCheckOut = incomingDates.checkOut || '';
+    const [checkIn, setCheckIn] = useState(incomingDates.checkIn || todayStr);
+    const [checkOut, setCheckOut] = useState(incomingDates.checkOut || tomorrowStr);
 
     const [stay, setStay] = useState<StayDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -102,10 +111,20 @@ export function StayDetailPage() {
         }
     };
 
-    // 숙소 상세 데이터 조회
+    // 최초 진입 시 스크롤 최상단 이동
     useEffect(() => {
         window.scrollTo(0, 0);
-        axios.get<StayDetail>(`/api/v1/stays/${contentId}`)
+    }, [contentId]);
+
+    // 숙소 상세 및 날짜별 잔여 객실 데이터 조회
+    useEffect(() => {
+        if (!contentId) return;
+        axios.get<StayDetail>(`/api/v1/stays/${contentId}`, {
+            params: {
+                checkIn: checkIn || undefined,
+                checkOut: checkOut || undefined,
+            }
+        })
             .then((res) => setStay(res.data))
             .catch((err) => {
                 console.error(err);
@@ -113,7 +132,7 @@ export function StayDetailPage() {
                 navigate('/');
             })
             .finally(() => setLoading(false));
-    }, [contentId, navigate]);
+    }, [contentId, checkIn, checkOut, navigate]);
 
     // 모달 활성화 시 배경 스크롤 방지
     useEffect(() => {
@@ -202,7 +221,6 @@ export function StayDetailPage() {
                                 backgroundColor: '#f1f5f9'
                             }}
                         >
-                            {/* 좌측 메인 사진 */}
                             <div
                                 onClick={() => setIsGalleryOpen(true)}
                                 style={{
@@ -217,7 +235,6 @@ export function StayDetailPage() {
                                 onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                             />
 
-                            {/* 우측 서브 사진 영역 */}
                             {mainImages.length > 1 && (
                                 <div
                                     style={{
@@ -271,7 +288,6 @@ export function StayDetailPage() {
                         </div>
                     )}
 
-                    {/* 전체 사진 보기 버튼 */}
                     {allGalleryImages.length > 0 && (
                         <button
                             type="button"
@@ -301,7 +317,7 @@ export function StayDetailPage() {
                     )}
                 </section>
 
-                {/* 2. 숙소 헤더 정보 (우측 상단 찜 버튼 포함) */}
+                {/* 2. 숙소 헤더 정보 */}
                 <section style={{
                     backgroundColor: '#ffffff',
                     borderRadius: '16px',
@@ -310,7 +326,6 @@ export function StayDetailPage() {
                     marginBottom: '24px',
                     position: 'relative'
                 }}>
-                    {/* 💡 우측 상단 찜(Heart) 버튼 (size 40) */}
                     <button
                         type="button"
                         onClick={handleToggleLike}
@@ -446,7 +461,7 @@ export function StayDetailPage() {
                     )}
                 </section>
 
-                {/* 4. 객실 선택 */}
+                {/* 4. 객실 선택 (상단 날짜 선택 바 포함) */}
                 <section style={{
                     backgroundColor: '#ffffff',
                     borderRadius: '16px',
@@ -454,7 +469,71 @@ export function StayDetailPage() {
                     border: '1px solid #e2e8f0',
                     marginBottom: '24px'
                 }}>
-                    <h2 style={{ fontSize: '18px', color: '#0f172a', marginBottom: '20px' }}>객실 선택</h2>
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                        marginBottom: '20px'
+                    }}>
+                        <h2 style={{ fontSize: '18px', color: '#0f172a', margin: 0 }}>객실 선택</h2>
+
+                        {/* 💡 상세페이지 내 체크인/체크아웃 일정 변경 바 */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '12px',
+                            padding: '8px 14px'
+                        }}>
+                            <Calendar size={16} color="#0f766e" />
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>조회 일정:</span>
+                            <input
+                                type="date"
+                                min={todayStr}
+                                value={checkIn}
+                                onClick={(e) => (e.currentTarget as any).showPicker?.()}
+                                onChange={(e) => {
+                                    const nextIn = e.target.value;
+                                    setCheckIn(nextIn);
+                                    if (nextIn >= checkOut) {
+                                        const nextD = new Date(nextIn);
+                                        nextD.setDate(nextD.getDate() + 1);
+                                        setCheckOut(nextD.toISOString().split('T')[0]);
+                                    }
+                                }}
+                                style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    fontSize: '13px',
+                                    fontWeight: 700,
+                                    color: '#0f172a',
+                                    cursor: 'pointer',
+                                    outline: 'none'
+                                }}
+                            />
+                            <span style={{ color: '#94a3b8' }}>~</span>
+                            <input
+                                type="date"
+                                min={checkIn || todayStr}
+                                value={checkOut}
+                                onClick={(e) => (e.currentTarget as any).showPicker?.()}
+                                onChange={(e) => setCheckOut(e.target.value)}
+                                style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    fontSize: '13px',
+                                    fontWeight: 700,
+                                    color: '#0f172a',
+                                    cursor: 'pointer',
+                                    outline: 'none'
+                                }}
+                            />
+                        </div>
+                    </div>
 
                     {stay.rooms && stay.rooms.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -464,8 +543,8 @@ export function StayDetailPage() {
                                     room={room}
                                     stayTitle={stay.title}
                                     stayAddr={stay.addr}
-                                    initialCheckIn={selectedCheckIn}
-                                    initialCheckOut={selectedCheckOut}
+                                    initialCheckIn={checkIn}
+                                    initialCheckOut={checkOut}
                                 />
                             ))}
                         </div>
@@ -660,11 +739,17 @@ function RoomCard({
     initialCheckOut?: string;
 }) {
     const navigate = useNavigate();
-    // 💡 누락되었던 룸 이미지 상태 및 변수 복구
     const hasImages = room.imageUrls && room.imageUrls.length > 0;
     const [activeImage, setActiveImage] = useState<string>(hasImages ? room.imageUrls[0] : '');
 
+    // 💡 잔여 객실 수 계산 및 마감 여부 판별
+    const availableCount = room.availableCount ?? 0;
+    const isSoldOut = availableCount <= 0;
+    const isUrgent = availableCount > 0 && availableCount <= 3;
+
     const handleReserveClick = () => {
+        if (isSoldOut) return;
+
         const token = localStorage.getItem('accessToken');
         if (!token) {
             alert('로그인이 필요한 서비스입니다.');
@@ -702,6 +787,7 @@ function RoomCard({
                 overflow: 'hidden',
                 backgroundColor: '#ffffff',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                opacity: isSoldOut ? 0.75 : 1,
             }}
         >
             {hasImages ? (
@@ -812,9 +898,45 @@ function RoomCard({
                     }}
                 >
                     <div>
-                        <h3 style={{ fontSize: '18px', color: '#0f172a', margin: '0 0 8px 0', fontWeight: 700 }}>
-                            {room.roomTitle}
-                        </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <h3 style={{ fontSize: '18px', color: '#0f172a', margin: 0, fontWeight: 700 }}>
+                                {room.roomTitle}
+                            </h3>
+
+                            {/* 💡 객실별 잔여 수량 뱃지 */}
+                            <span
+                                style={{
+                                    padding: '3px 10px',
+                                    borderRadius: '12px',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    backgroundColor: isSoldOut
+                                        ? '#f1f5f9'
+                                        : isUrgent
+                                            ? '#fef2f2'
+                                            : '#f0fdfa',
+                                    color: isSoldOut
+                                        ? '#94a3b8'
+                                        : isUrgent
+                                            ? '#dc2626'
+                                            : '#0f766e',
+                                    border: `1px solid ${
+                                        isSoldOut
+                                            ? '#e2e8f0'
+                                            : isUrgent
+                                                ? '#fecaca'
+                                                : '#ccfbf1'
+                                    }`,
+                                }}
+                            >
+                                {isSoldOut
+                                    ? '예약 마감 (0실)'
+                                    : isUrgent
+                                        ? `마감임박 · 잔여 ${availableCount}실`
+                                        : `잔여 ${availableCount}실`}
+                            </span>
+                        </div>
+
                         <div style={{ display: 'flex', gap: '14px', color: '#64748b', fontSize: '13px' }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                 <BedDouble size={15} color="#0f766e" /> {room.roomSize ? room.roomSize : '기본 객실'}
@@ -828,26 +950,35 @@ function RoomCard({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         <div style={{ textAlign: 'right' }}>
                             <span style={{ fontSize: '12px', color: '#94a3b8', display: 'block' }}>1박 기준</span>
-                            <strong style={{ fontSize: '22px', color: '#0f766e' }}>{money(room.pricePerNight)}</strong>
+                            <strong style={{ fontSize: '22px', color: isSoldOut ? '#94a3b8' : '#0f766e' }}>
+                                {money(room.pricePerNight)}
+                            </strong>
                         </div>
+
+                        {/* 💡 잔여 0실일 때 예약하기 버튼 비활성화 */}
                         <button
                             type="button"
+                            disabled={isSoldOut}
                             onClick={handleReserveClick}
                             style={{
                                 padding: '12px 24px',
-                                backgroundColor: '#123f4d',
+                                backgroundColor: isSoldOut ? '#cbd5e1' : '#123f4d',
                                 color: '#ffffff',
                                 border: 'none',
                                 borderRadius: '8px',
                                 fontWeight: 600,
                                 fontSize: '14px',
-                                cursor: 'pointer',
+                                cursor: isSoldOut ? 'not-allowed' : 'pointer',
                                 transition: 'background-color 0.2s',
                             }}
-                            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#0e313c')}
-                            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#123f4d')}
+                            onMouseOver={(e) => {
+                                if (!isSoldOut) e.currentTarget.style.backgroundColor = '#0e313c';
+                            }}
+                            onMouseOut={(e) => {
+                                if (!isSoldOut) e.currentTarget.style.backgroundColor = '#123f4d';
+                            }}
                         >
-                            예약하기
+                            {isSoldOut ? '예약 마감' : '예약하기'}
                         </button>
                     </div>
                 </div>

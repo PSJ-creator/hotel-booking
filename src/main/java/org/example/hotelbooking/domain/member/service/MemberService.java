@@ -1,10 +1,16 @@
 package org.example.hotelbooking.domain.member.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.member.dto.MemberDto;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.entity.Role;
 import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.member.repository.RoleRepository;
+import org.example.hotelbooking.global.security.JwtTokenProvider;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.concurrent.TimeUnit;
 
@@ -13,9 +19,11 @@ import java.util.concurrent.TimeUnit;
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final RoleRepository roleRepository;
     private final MailService mailService;
     private final StringRedisTemplate redisTemplate;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
     public void sendPasswordResetCode(String email) {
         // 1. 이메일로 회원 정보 조회 (존재 여부 확인)
@@ -73,5 +81,70 @@ public class MemberService {
 
         // 3. 비밀번호 변경이 끝났으므로 합격 티켓 삭제 (재사용 방지)
         redisTemplate.delete(verifiedKey);
+    }
+
+    // 💡 1. 내 정보 조회
+    @Transactional(readOnly = true)
+    public MemberDto.Response getMyProfile(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        boolean isSocial = email.startsWith("kakao_") && email.endsWith("@hotel.com");
+
+        return MemberDto.Response.builder()
+                .email(member.getEmail())
+                .name(member.getName())
+                .role(member.getRole().getRoleName())
+                .businessNo(member.getBusinessNo())
+                .isSocial(isSocial)
+                .build();
+    }
+
+    // 💡 2. 회원정보 수정 (이름, 비밀번호)
+    @Transactional
+    public String updateProfile(String email, MemberDto.UpdateRequest request) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        // 이름 변경
+        if (request.getName() != null && !request.getName().isBlank()) {
+            member.updateInfo(request.getName().trim());
+        }
+
+        // 비밀번호 변경 (입력된 경우에만 검증 후 변경)
+        if (request.getNewPassword() != null && !request.getNewPassword().isBlank()) {
+            boolean isSocial = email.startsWith("kakao_") && email.endsWith("@hotel.com");
+            if (isSocial) {
+                throw new IllegalArgumentException("소셜 로그인 회원은 비밀번호를 변경할 수 없습니다.");
+            }
+
+            if (request.getCurrentPassword() == null || !passwordEncoder.matches(request.getCurrentPassword(), member.getPassword())) {
+                throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+            }
+
+            member.updatePassword(passwordEncoder.encode(request.getNewPassword()));
+        }
+
+        // 변경된 닉네임이 반영된 새 JWT 토큰 발급
+        return jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
+    }
+
+    // 💡 3. 숙소 관리자 탈퇴 (일반 유저 ROLE_USER로 강등)
+    @Transactional
+    public String downgradeHost(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        if (!"ROLE_HOST".equals(member.getRole().getRoleName())) {
+            throw new IllegalArgumentException("숙소 관리자 권한을 가진 회원만 신청할 수 있습니다.");
+        }
+
+        Role userRole = roleRepository.findByRoleName("ROLE_USER")
+                .orElseThrow(() -> new IllegalArgumentException("ROLE_USER 권한이 존재하지 않습니다."));
+
+        member.downgradeToUser(userRole);
+
+        // 변경된 ROLE_USER 권한이 반영된 새 JWT 토큰 반환
+        return jwtTokenProvider.createToken(member.getEmail(), userRole.getRoleName(), member.getName());
     }
 }

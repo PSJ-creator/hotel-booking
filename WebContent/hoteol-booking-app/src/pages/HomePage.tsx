@@ -17,21 +17,21 @@ import {
     ShieldAlert,
     FileCheck,
     PlusCircle,
-    MapPin,
 } from "lucide-react";
 import { BookingModal } from "../components/BookingModal";
 import { useHeroSlider } from "../hooks/useHeroSlider";
 import { useReservation } from "../hooks/useReservation";
 import { useStays } from "../hooks/useStays";
-import { destinations, money, regions, types, getLodgingTypeName, fetchStays } from "../data/stays";
+import { destinations, regions, types, fetchStays } from "../data/stays";
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import { Footer } from "../components/Footer";
 import { HostApplyBanner } from "../components/HostApplyBanner.tsx";
 import { NotificationBell } from '../components/NotificationBell';
 import { StayMapModal } from "../components/StayMapModal";
+import { StayCard } from "../components/StayCard"; // 💡 공통 카드 컴포넌트 임포트
 import type { Stay } from "../types/stay.ts";
-import {fetchMyWishlist, toggleAccommodationLike} from "../api/stays.ts";
+import { fetchMyWishlist, toggleAccommodationLike } from "../api/stays.ts";
 
 const heroTitles = [
     "제주에 머무는 시간,\n여행이 되다",
@@ -83,15 +83,26 @@ export function HomePage() {
     const [modalStays, setModalStays] = useState<Stay[]>([]);
     const [isMapModalOpen, setIsMapModalOpen] = useState(false);
 
+    // 스크롤 시 검색창 상단 고정(Sticky) 상태 감지
+    const [isSearchPinned, setIsSearchPinned] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setIsSearchPinned(window.scrollY > 430);
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
     // 1. [검색 패널용] 지도 모달 오픈
     const handleMapSearch = async () => {
         const currentScrollY = window.scrollY;
 
-        search(checkIn, checkOut, guests); // 💡 guests 전달
+        search(checkIn, checkOut, guests);
         window.scrollTo(0, currentScrollY);
 
         try {
-            const filteredStays = await fetchStays(region, type, query, checkIn, checkOut, guests); // 💡 guests 전달
+            const filteredStays = await fetchStays(region, type, query, checkIn, checkOut, guests);
             setModalStays(filteredStays);
         } catch {
             setModalStays(result);
@@ -114,8 +125,6 @@ export function HomePage() {
         }
         setIsMapModalOpen(true);
     };
-
-
 
     // 로그인 여부 및 토큰 기반 닉네임 파싱
     useEffect(() => {
@@ -186,9 +195,10 @@ export function HomePage() {
         alert(`[${menuName}] 기능은 준비 중입니다.`);
         setIsDropdownOpen(false);
     };
+
     const [likedContentIds, setLikedContentIds] = useState<Set<string>>(new Set());
 
-    // 💡 로그인 상태일 때 찜 목록 동기화
+    // 로그인 상태일 때 찜 목록 동기화
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token && isLoggedIn) {
@@ -202,9 +212,8 @@ export function HomePage() {
         }
     }, [isLoggedIn]);
 
-    // 💡 찜 토글 핸들러 함수
+    // 찜 토글 핸들러 함수
     const handleToggleWishlist = async (e: React.MouseEvent, contentId: string) => {
-        // ⚠️ 필수: 숙소 상세 모달이 열리지 않도록 이벤트 버블링 차단
         e.stopPropagation();
 
         if (!isLoggedIn) {
@@ -228,10 +237,10 @@ export function HomePage() {
             alert("위시리스트 처리 중 오류가 발생했습니다.");
         }
     };
+
     useEffect(() => {
         setVisibleCount(18);
     }, [region, type, query]);
-
 
     const handleLoadMore = () => {
         setVisibleCount((prev) => prev + 18);
@@ -246,7 +255,7 @@ export function HomePage() {
             <header className="header">
                 <div className="nav container">
                     <a className="brand" href="#top" aria-label="제주 야호 홈">
-                        <img className="brand-mark" src="/favicon.png" alt="제주 야호 심볼"/>
+                        <img className="brand-mark" src="/favicon.png" alt="제주 야호 심볼" />
                         <span>
                             제주 야호<small>JEJU YA-HO</small>
                         </span>
@@ -272,7 +281,7 @@ export function HomePage() {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <a className="nav-cta" href="#stays">
-                            제주 숙소 둘러보기 <ArrowRight size={16}/>
+                            제주 숙소 둘러보기 <ArrowRight size={16} />
                         </a>
 
                         {isLoggedIn ? (
@@ -305,7 +314,7 @@ export function HomePage() {
                                             alignItems: 'center',
                                             justifyContent: 'center'
                                         }}>
-                                            <User size={16}/>
+                                            <User size={16} />
                                         </div>
                                         <span>{userName}</span>
 
@@ -337,7 +346,7 @@ export function HomePage() {
                                         <ChevronDown size={14} style={{
                                             transform: isDropdownOpen ? 'rotate(180deg)' : 'none',
                                             transition: '0.2s'
-                                        }}/>
+                                        }} />
                                     </button>
 
                                     {isDropdownOpen && (
@@ -367,19 +376,15 @@ export function HomePage() {
                                                         }}
                                                         style={dropdownItemStyle}
                                                     >
-                                                        <Heart size={16}/> 숙소 위시리스트
+                                                        <Heart size={16} /> 숙소 위시리스트
                                                     </button>
                                                     <button type="button" onClick={() => handleDummyClick("관광지 위시리스트")}
                                                             style={dropdownItemStyle}>
-                                                        <MapIcon size={16}/> 관광지 위시리스트
+                                                        <MapIcon size={16} /> 관광지 위시리스트
                                                     </button>
                                                     <button type="button" onClick={() => handleDummyClick("예매한 숙소 조회")}
                                                             style={dropdownItemStyle}>
-                                                        <CalendarCheck size={16}/> 예매한 숙소 조회
-                                                    </button>
-                                                    <button type="button" onClick={() => handleDummyClick("회원정보 수정")}
-                                                            style={dropdownItemStyle}>
-                                                        <Settings size={16}/> 회원정보 수정
+                                                        <CalendarCheck size={16} /> 예매한 숙소 조회
                                                     </button>
                                                 </>
                                             )}
@@ -391,17 +396,17 @@ export function HomePage() {
                                                             <button type="button"
                                                                     onClick={() => handleDummyClick("예약 내역 관리")}
                                                                     style={dropdownItemStyle}>
-                                                                <CalendarCheck size={16}/> 예약 내역 관리
+                                                                <CalendarCheck size={16} /> 예약 내역 관리
                                                             </button>
                                                             <button type="button"
                                                                     onClick={() => handleDummyClick("숙소 관리")}
                                                                     style={dropdownItemStyle}>
-                                                                <Home size={16}/> 숙소 관리
+                                                                <Home size={16} /> 숙소 관리
                                                             </button>
                                                             <button type="button"
                                                                     onClick={() => handleDummyClick("리뷰 관리")}
                                                                     style={dropdownItemStyle}>
-                                                                <MessageSquare size={16}/> 리뷰 관리
+                                                                <MessageSquare size={16} /> 리뷰 관리
                                                             </button>
                                                         </>
                                                     ) : (
@@ -411,7 +416,7 @@ export function HomePage() {
                                                                     color: '#0d9488',
                                                                     fontWeight: 600
                                                                 }}>
-                                                            <PlusCircle size={16}/> 숙소 신청
+                                                            <PlusCircle size={16} /> 숙소 신청
                                                         </button>
                                                     )}
                                                 </>
@@ -421,32 +426,42 @@ export function HomePage() {
                                                 <>
                                                     <button type="button" onClick={() => handleDummyClick("사이트 관리")}
                                                             style={dropdownItemStyle}>
-                                                        <ShieldAlert size={16}/> 사이트 관리
+                                                        <ShieldAlert size={16} /> 사이트 관리
                                                     </button>
                                                     <button type="button" onClick={() => handleDummyClick("파트너 관리")}
                                                             style={dropdownItemStyle}>
-                                                        <Users size={16}/> 파트너 관리
+                                                        <Users size={16} /> 파트너 관리
                                                     </button>
                                                     <button type="button" onClick={() => handleDummyClick("신규 숙소 심사")}
                                                             style={dropdownItemStyle}>
-                                                        <FileCheck size={16}/> 신규 숙소 심사
+                                                        <FileCheck size={16} /> 신규 숙소 심사
                                                     </button>
                                                 </>
                                             )}
 
-                                            <div style={{ height: '1px', backgroundColor: '#f0f0f0', margin: '6px 0' }}/>
+                                            <div style={{ height: '1px', backgroundColor: '#f0f0f0', margin: '6px 0' }} />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsDropdownOpen(false);
+                                                    navigate('/profile');
+                                                }}
+                                                style={dropdownItemStyle}
+                                            >
+                                                <Settings size={16} /> 회원정보 수정
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={handleLogout}
                                                 style={{ ...dropdownItemStyle, color: '#e53e3e' }}
                                             >
-                                                <LogOut size={16}/> 로그아웃
+                                                <LogOut size={16} /> 로그아웃
                                             </button>
                                         </div>
                                     )}
                                 </div>
 
-                                <NotificationBell userRole={userRole} isLoggedIn={isLoggedIn}/>
+                                <NotificationBell userRole={userRole} isLoggedIn={isLoggedIn} />
                             </div>
                         ) : (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -486,33 +501,36 @@ export function HomePage() {
 
             <main id="top">
                 <section className={`hero hero-${slide}`}>
-                    <div className="hero-image"/>
-                    <div className="hero-shade"/>
+                    <div className="hero-image" />
+                    <div className="hero-shade" />
                     <div className="container hero-inner">
                         <div className="hero-copy">
                             <div className="eyebrow light">ONLY JEJU · STAY & TRAVEL</div>
                             <h1>{heroTitles[slide]}</h1>
                             <p>가고 싶은 여행지를 찾고, 마음에 드는 숙소를 만나보세요.</p>
                             <a className="hero-link" href="#stays">
-                                숙소 둘러보기 <ArrowRight size={18}/>
+                                숙소 둘러보기 <ArrowRight size={18} />
                             </a>
                         </div>
                         <div className="slide-control">
                             <button aria-label="이전 배너" onClick={previous}>
-                                <ChevronLeft size={18}/>
+                                <ChevronLeft size={18} />
                             </button>
                             <span>
-                                0{slide + 1} <i/> 03
+                                0{slide + 1} <i /> 03
                             </span>
                             <button aria-label="다음 배너" onClick={next}>
-                                <ChevronRight size={18}/>
+                                <ChevronRight size={18} />
                             </button>
                         </div>
                     </div>
                 </section>
 
                 {/* 검색 패널: 일정 & 인원 & 검색어 */}
-                <section className="search-wrap container" aria-label="숙소 검색">
+                <section
+                    className={`search-wrap container ${isSearchPinned ? 'is-pinned' : ''}`}
+                    aria-label="숙소 검색"
+                >
                     <form
                         className="search-panel"
                         onSubmit={(e) => {
@@ -521,14 +539,22 @@ export function HomePage() {
                         }}
                         style={{ display: 'flex', alignItems: 'center', gap: '0' }}
                     >
-                        {/* 1. 왼쪽 타이틀 영역 (너비 축소) */}
-                        <div className="search-heading" style={{ minWidth: '165px', maxWidth: '175px', paddingRight: '14px', flexShrink: 0 }}>
+                        {/* 1. 왼쪽 타이틀 영역 */}
+                        <div className="search-heading"
+                             style={{ minWidth: '165px', maxWidth: '175px', paddingRight: '14px', flexShrink: 0 }}>
                             <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>나에게 맞는 제주를 찾아보세요</span>
                             <strong style={{ fontSize: '17px', letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>어디로 떠나실까요?</strong>
                         </div>
 
-                        {/* 2. 일정 선택 필드 (너비 대폭 확보: flex 1.4) */}
-                        <div className="search-field" style={{ flex: '1.4', minWidth: '260px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {/* 2. 일정 선택 필드 */}
+                        <div className="search-field" style={{
+                            flex: '1.4',
+                            minWidth: '260px',
+                            padding: '8px 16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px'
+                        }}>
                             <Calendar size={20} color="#49717a" style={{ flexShrink: 0 }} />
                             <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}>
                                 <span style={{ fontSize: '12px', color: '#819296', fontWeight: 600 }}>일정</span>
@@ -537,7 +563,7 @@ export function HomePage() {
                                         type="date"
                                         min={todayStr}
                                         value={checkIn}
-                                        onClick={(e) => (e.currentTarget as any).showPicker?.()} // 💡 텍스트 클릭 시 달력 팝업 트리거
+                                        onClick={(e) => (e.currentTarget as any).showPicker?.()}
                                         onChange={(e) => {
                                             setCheckIn(e.target.value);
                                             if (e.target.value >= checkOut) {
@@ -554,7 +580,7 @@ export function HomePage() {
                                             fontWeight: 700,
                                             color: '#17343d',
                                             padding: 0,
-                                            cursor: 'pointer', // 💡 클릭 가능 커서
+                                            cursor: 'pointer',
                                             flex: 1,
                                             minWidth: '105px'
                                         }}
@@ -564,7 +590,7 @@ export function HomePage() {
                                         type="date"
                                         min={checkIn}
                                         value={checkOut}
-                                        onClick={(e) => (e.currentTarget as any).showPicker?.()} // 💡 텍스트 클릭 시 달력 팝업 트리거
+                                        onClick={(e) => (e.currentTarget as any).showPicker?.()}
                                         onChange={(e) => setCheckOut(e.target.value)}
                                         style={{
                                             border: 'none',
@@ -612,7 +638,8 @@ export function HomePage() {
                         </label>
 
                         {/* 4. 검색어 필드 */}
-                        <label className="search-field keyword" style={{ flex: '1', minWidth: '150px', padding: '8px 16px' }}>
+                        <label className="search-field keyword"
+                               style={{ flex: '1', minWidth: '150px', padding: '8px 16px' }}>
                             <Search size={20} color="#49717a" style={{ flexShrink: 0 }} />
                             <span style={{ width: '100%' }}>
                                 검색어
@@ -627,8 +654,9 @@ export function HomePage() {
 
                         {/* 5. 검색 버튼 그룹 */}
                         <div style={{ display: 'flex', gap: '8px', paddingLeft: '12px', flexShrink: 0 }}>
-                            <button className="search-button" type="submit" style={{ padding: '16px 20px', fontSize: '14px', gap: '10px' }}>
-                                숙소 검색 <ArrowRight size={16}/>
+                            <button className="search-button" type="submit"
+                                    style={{ padding: '16px 20px', fontSize: '14px', gap: '10px' }}>
+                                숙소 검색 <ArrowRight size={16} />
                             </button>
                             <button
                                 type="button"
@@ -645,7 +673,7 @@ export function HomePage() {
                                     fontSize: '14px'
                                 }}
                             >
-                                <MapIcon size={17}/>
+                                <MapIcon size={17} />
                                 지도 검색
                             </button>
                         </div>
@@ -668,12 +696,12 @@ export function HomePage() {
                                 className={`destination ${d.className}`}
                                 onClick={() => selectRegion(d.name)}
                             >
-                                <span className="destination-image"/>
+                                <span className="destination-image" />
                                 <span className="destination-content">
                                     <small>JEJU ISLAND</small>
                                     <strong>{d.name}</strong>
                                     <span>
-                                        {d.note} <ArrowRight size={17}/>
+                                        {d.note} <ArrowRight size={17} />
                                     </span>
                                 </span>
                             </button>
@@ -726,91 +754,18 @@ export function HomePage() {
                                 ))}
                             </div>
                         </div>
+
+                        {/* 💡 공통 StayCard 컴포넌트 사용 */}
                         <div className="stay-grid">
-                            {result.slice(0, visibleCount).map((s) => {
-                                const isLiked = likedContentIds.has(s.contentId);
-
-                                return (
-                                    <article className="stay-card" key={s.contentId}>
-                                        <button
-                                            className="stay-photo"
-                                            onClick={() => open(s)}
-                                            aria-label={`${s.title} 자세히 보기`}
-                                            style={{
-                                                backgroundImage: `url(${s.firstImage || s.firstImage2 || "/jeju-stays.png"})`,
-                                                backgroundSize: "cover",
-                                                backgroundPosition: "center",
-                                                backgroundRepeat: "no-repeat",
-                                                position: "relative",
-                                            }}
-                                        >
-                                            {/* 기존 숙박 종류 태그 */}
-                                            <span className="photo-tag">
-                        {getLodgingTypeName(s.lodgingType)}
-                    </span>
-
-                                            {/* 💡 우측 상단 찜 토글 버튼 */}
-                                            <div
-                                                onClick={(e) => handleToggleWishlist(e, s.contentId)}
-                                                role="button"
-                                                aria-label="위시리스트 토글"
-                                                style={{
-                                                    position: "absolute",
-                                                    top: "12px",
-                                                    right: "12px",
-                                                    width: "36px",
-                                                    height: "36px",
-                                                    borderRadius: "50%",
-                                                    backgroundColor: "rgba(255, 255, 255, 0.88)",
-                                                    backdropFilter: "blur(4px)",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    cursor: "pointer",
-                                                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-                                                    zIndex: 2,
-                                                    transition: "transform 0.15s ease",
-                                                }}
-                                                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
-                                                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1.0)")}
-                                            >
-                                                <Heart
-                                                    size={19}
-                                                    fill={isLiked ? "#ef4444" : "none"}
-                                                    color={isLiked ? "#ef4444" : "#64748b"}
-                                                    strokeWidth={isLiked ? 2 : 1.8}
-                                                />
-                                            </div>
-                                        </button>
-
-                                        {/* 하단 숙소 정보 영역 (기존 유지) */}
-                                        <div className="stay-info">
-                                            <div className="stay-location">
-                                                <MapPin size={15}/>
-                                                {s.addr?.includes("서귀포") ? "서귀포시" : "제주시"}
-                                            </div>
-                                            <h3>{s.title}</h3>
-                                            <p>
-                                                {s.overview
-                                                    ? `${s.overview.slice(0, 80)}...`
-                                                    : "편안한 휴식을 제공하는 제주 숙소입니다."}
-                                            </p>
-                                            <div className="stay-bottom">
-                                                <div>
-                                                    <strong>{money(s.basePrice)}</strong>
-                                                    <small> / 1박 기준가</small>
-                                                </div>
-                                                <button
-                                                    onClick={() => open(s)}
-                                                    aria-label={`${s.title} 예약 정보 보기`}
-                                                >
-                                                    <ArrowRight size={19}/>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </article>
-                                );
-                            })}
+                            {result.slice(0, visibleCount).map((s) => (
+                                <StayCard
+                                    key={s.contentId}
+                                    stay={s}
+                                    isLiked={likedContentIds.has(s.contentId)}
+                                    onCardClick={(stay) => open(stay)}
+                                    onToggleLike={handleToggleWishlist}
+                                />
+                            ))}
                         </div>
 
                         {visibleCount < result.length && (
@@ -854,15 +809,15 @@ export function HomePage() {
                             <p>머무는 곳에서 시작되는 여행의 좋은 순간들.</p>
                         </div>
                         <a href="#destinations">
-                            여행지 둘러보기 <ArrowRight size={18}/>
+                            여행지 둘러보기 <ArrowRight size={18} />
                         </a>
                     </div>
                 </section>
             </main>
 
-            <HostApplyBanner/>
-            <Footer/>
-            <BookingModal reservation={reservation}/>
+            <HostApplyBanner />
+            <Footer />
+            <BookingModal reservation={reservation} />
 
             <StayMapModal
                 isOpen={isMapModalOpen}
