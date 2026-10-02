@@ -8,7 +8,9 @@ import { StayDetailPage } from "./pages/StayDetailPage.tsx";
 import { ReservationPage } from "./pages/ReservationPage.tsx";
 import { FindPasswordPage } from "./pages/FindPasswordPage.tsx";
 import {WishlistPage} from "./pages/WishlistPage.tsx";
+import { PaymentSuccessPage } from "./pages/PaymentSuccessPage.tsx";
 import {ProfileEditPage} from "./pages/ProfileEditPage.tsx";
+
 
 function App() {
     return (
@@ -23,6 +25,7 @@ function App() {
                 <Route path="/reservation" element={<ReservationPage />} />
                 <Route path="/wishlist" element={<WishlistPage />} />
                 <Route path="/profile" element={<ProfileEditPage />} />
+                <Route path="/payment/success" element={<PaymentSuccessPage />} />
             </Routes>
         </BrowserRouter>
     );
