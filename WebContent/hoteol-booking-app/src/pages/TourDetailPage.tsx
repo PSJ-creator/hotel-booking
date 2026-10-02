@@ -59,7 +59,7 @@ export function TourDetailPage() {
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token && contentId) {
-            fetch(`/api/v1/likes/tours/${contentId}/status`, {
+            fetch(`/api/v1/tours/likes/${contentId}/status`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
                 .then((res) => (res.ok ? res.json() : false))
