@@ -71,7 +71,7 @@ export function KakaoTourMap({
 
             const script = document.createElement('script');
             script.id = 'kakao-map-sdk';
-            script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&libraries=clusterer&autoload=false`;
+            script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&libraries=clusterer,services&autoload=false`;
             script.async = true;
             script.onload = () => {
                 if (isMounted) setIsLoaded(true);
