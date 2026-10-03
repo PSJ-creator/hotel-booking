@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Plus, Minus } from 'lucide-react';
 import type { Stay } from '../types/stay';
 import { money, getLodgingTypeName } from '../data/stays';
 
@@ -11,11 +12,19 @@ interface KakaoStayMapProps {
     stays: Stay[];
     level?: number;
     height?: string;
-    mode?: 'search' | 'detail'; // 💡 모드 구분 (기본값: 'search')
+    mode?: 'search' | 'detail';
+    zoomable?: boolean; // 💡 마우스 휠 확대/축소 허용 여부 (기본값: true)
 }
 
-export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }: KakaoStayMapProps) {
+export function KakaoStayMap({
+                                 stays,
+                                 level,
+                                 height = '520px',
+                                 mode = 'search',
+                                 zoomable = true
+                             }: KakaoStayMapProps) {
     const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapInstanceRef = useRef<any>(null); // 💡 +/- 버튼 제어용 지도 인스턴스 보관
     const navigate = useNavigate();
     const [isLoaded, setIsLoaded] = useState(false);
 
@@ -36,7 +45,6 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
                 return;
             }
 
-            // 백엔드(application-secret.properties)에서 카카오 맵 키 조회
             let appKey = import.meta.env.VITE_KAKAO_MAP_KEY || '';
             if (!appKey) {
                 try {
@@ -82,11 +90,9 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
                 (s) => s.mapX && s.mapY && !isNaN(Number(s.mapX)) && !isNaN(Number(s.mapY))
             );
 
-            // 💡 상세페이지 모드인지 여부 (mode가 'detail'일 때만 작동)
             const isDetailPage = mode === 'detail';
             const isSingleStay = validStays.length === 1;
 
-            // 중심 좌표: 상세페이지이거나 검색 결과가 딱 1곳이면 해당 숙소 좌표, 그 외는 제주도 전역
             const centerPosition = (isDetailPage || isSingleStay) && validStays.length > 0
                 ? new window.kakao.maps.LatLng(
                     parseFloat(validStays[0].mapY!),
@@ -94,7 +100,6 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
                 )
                 : new window.kakao.maps.LatLng(33.3617, 126.5292);
 
-            // 줌 레벨: level prop 우선 -> 상세페이지면 4(근접), 검색 모달이면 숙소 1개여도 적당히 주변이 보이는 6~7 또는 지정된 레벨
             const zoomLevel = level ?? (isDetailPage ? 4 : isSingleStay ? 6 : 9);
 
             const options = {
@@ -102,11 +107,12 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
                 level: zoomLevel,
             };
             const map = new window.kakao.maps.Map(mapContainerRef.current, options);
+            mapInstanceRef.current = map;
 
-            // =========================================================
-            // 💡 [케이스 A] 객실 상세페이지 전용 뷰 (mode === 'detail')
-            // : 숙박종류 + 숙소명 + 상세 주소 + 주소 복사 버튼 (가격/상세보기 제외)
-            // =========================================================
+            // 💡 마우스 휠 확대/축소 제어 (false일 때 스크롤 내려도 지도 축척이 변하지 않음)
+            map.setZoomable(zoomable);
+
+            // [케이스 A] 객실 상세페이지 전용 뷰 (mode === 'detail')
             if (isDetailPage && validStays.length > 0) {
                 const stay = validStays[0];
                 const marker = new window.kakao.maps.Marker({
@@ -127,13 +133,14 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
                     position: relative;
                 `;
 
-                // 💡 상단 X(닫기) 버튼 및 주소 복사 버튼 추가
+                const uid = `${stay.contentId}-${zoomable ? 'popup' : 'inline'}`;
+
                 detailCard.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px;">
                         <span style="font-size: 11px; color: #0f766e; font-weight: 700;">
                             ${getLodgingTypeName(stay.lodgingType)}
                         </span>
-                        <button id="btn-close-detail-overlay" style="
+                        <button id="btn-close-detail-overlay-${uid}" style="
                             background: none;
                             border: none;
                             font-size: 14px;
@@ -150,7 +157,7 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
                         ${stay.addr || '등록된 주소 정보 없음'}
                     </div>
                     <div style="display: flex; gap: 6px;">
-                        <button id="btn-copy-stay-addr" style="
+                        <button id="btn-copy-stay-addr-${uid}" style="
                             flex: 1;
                             padding: 6px 0;
                             background-color: #f1f5f9;
@@ -163,7 +170,7 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
                         ">
                             주소 복사
                         </button>
-                        <button id="btn-close-bottom" style="
+                        <button id="btn-close-bottom-${uid}" style="
                             padding: 6px 12px;
                             background-color: #ffffff;
                             color: #64748b;
@@ -183,41 +190,42 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
                     yAnchor: 1.3,
                 });
 
-                // 처음에는 열어둠
                 overlay.setMap(map);
 
-                // 마커 클릭 시 다시 열기
                 window.kakao.maps.event.addListener(marker, 'click', () => {
                     overlay.setMap(map);
                 });
 
-                // 주소 복사 및 닫기 버튼 이벤트 연결
                 setTimeout(() => {
-                    const copyBtn = document.getElementById('btn-copy-stay-addr');
-                    const closeXBtn = document.getElementById('btn-close-detail-overlay');
-                    const closeBottomBtn = document.getElementById('btn-close-bottom');
+                    const copyBtn = document.getElementById(`btn-copy-stay-addr-${uid}`);
+                    const closeXBtn = document.getElementById(`btn-close-detail-overlay-${uid}`);
+                    const closeBottomBtn = document.getElementById(`btn-close-bottom-${uid}`);
 
                     if (copyBtn && stay.addr) {
-                        copyBtn.onclick = () => {
+                        copyBtn.onclick = (e) => {
+                            e.stopPropagation();
                             navigator.clipboard.writeText(stay.addr as string);
                             alert('주소가 클립보드에 복사되었습니다.');
                         };
                     }
                     if (closeXBtn) {
-                        closeXBtn.onclick = () => overlay.setMap(null);
+                        closeXBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            overlay.setMap(null);
+                        };
                     }
                     if (closeBottomBtn) {
-                        closeBottomBtn.onclick = () => overlay.setMap(null);
+                        closeBottomBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            overlay.setMap(null);
+                        };
                     }
                 }, 0);
 
                 return;
             }
 
-            // =========================================================
-            // 💡 [케이스 B] 검색/홈페이지 지도 모드 (mode === 'search')
-            // : 숙소가 1개든 여러 개든 숙박종류 + 이름 + 주소 + 가격 + 상세보기 버튼 전체 노출!
-            // =========================================================
+            // [케이스 B] 검색/홈페이지 지도 모드 (mode === 'search')
             const clusterer = new window.kakao.maps.MarkerClusterer({
                 map: map,
                 averageCenter: true,
@@ -236,7 +244,6 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
                     position: position,
                 });
 
-                // 카드형 오버레이 UI 엘리먼트 생성
                 const content = document.createElement('div');
                 content.style.cssText = `
                     background: #ffffff;
@@ -318,7 +325,6 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
 
                 window.kakao.maps.event.addListener(marker, 'click', showOverlay);
 
-                // 💡 만약 검색 결과가 딱 1곳뿐이라면 클릭하지 않아도 카드 오버레이를 자동으로 즉시 열어둠!
                 if (isSingleStay) {
                     showOverlay();
                 }
@@ -326,35 +332,111 @@ export function KakaoStayMap({ stays, level, height = '520px', mode = 'search' }
                 return marker;
             });
 
-            // 검색 결과가 1개일 땐 마커를 지도에 직접 찍고, 2개 이상일 땐 클러스터러 적용
-            if (isSingleStay) {
+            if (isSingleStay && markers.length > 0) {
                 markers[0].setMap(map);
-            } else {
+            } else if (markers.length > 0) {
                 clusterer.addMarkers(markers);
             }
         });
-    }, [isLoaded, stays, level, mode, navigate]);
+    }, [isLoaded, stays, level, mode, zoomable, navigate]);
+
+    // 💡 우측 하단 확대(+) / 축소(-) 버튼 핸들러 (휠 잠금 상태에서도 언제든 작동)
+    const handleZoomIn = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (mapInstanceRef.current) {
+            mapInstanceRef.current.setLevel(mapInstanceRef.current.getLevel() - 1, { animate: true });
+        }
+    };
+
+    const handleZoomOut = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (mapInstanceRef.current) {
+            mapInstanceRef.current.setLevel(mapInstanceRef.current.getLevel() + 1, { animate: true });
+        }
+    };
 
     return (
-        <div
-            ref={mapContainerRef}
-            style={{
-                width: '100%',
-                height: height,
-                borderRadius: '16px',
-                border: '1px solid #e2e8f0',
-                overflow: 'hidden',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-                backgroundColor: '#f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-            }}
-        >
-            {!isLoaded && (
-                <span style={{ color: '#94a3b8', fontSize: '14px' }}>
-                    지도를 불러오는 중입니다...
-                </span>
+        <div style={{ position: 'relative', width: '100%', height }}>
+            <div
+                ref={mapContainerRef}
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '16px',
+                    border: '1px solid #e2e8f0',
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+                    backgroundColor: '#f1f5f9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                {!isLoaded && (
+                    <span style={{ color: '#94a3b8', fontSize: '14px' }}>
+                        지도를 불러오는 중입니다...
+                    </span>
+                )}
+            </div>
+
+            {/* 💡 우측 하단 확대(+) / 축소(-) 컨트롤 버튼 */}
+            {isLoaded && (
+                <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                        position: 'absolute',
+                        right: '14px',
+                        bottom: '14px',
+                        zIndex: 10,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        backgroundColor: '#ffffff',
+                        borderRadius: '10px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                        border: '1px solid #cbd5e1',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <button
+                        type="button"
+                        onClick={handleZoomIn}
+                        title="지도 확대"
+                        aria-label="지도 확대"
+                        style={{
+                            width: '36px',
+                            height: '36px',
+                            border: 'none',
+                            borderBottom: '1px solid #e2e8f0',
+                            backgroundColor: '#ffffff',
+                            color: '#123f4d',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <Plus size={18} strokeWidth={2.5} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleZoomOut}
+                        title="지도 축소"
+                        aria-label="지도 축소"
+                        style={{
+                            width: '36px',
+                            height: '36px',
+                            border: 'none',
+                            backgroundColor: '#ffffff',
+                            color: '#123f4d',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <Minus size={18} strokeWidth={2.5} />
+                    </button>
+                </div>
             )}
         </div>
     );

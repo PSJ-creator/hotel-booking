@@ -37,4 +37,7 @@ public interface RoomInventoryRepository extends JpaRepository<RoomInventory, Lo
             @Param("checkIn") LocalDate checkIn,
             @Param("checkOut") LocalDate checkOut
     );
+
+    // 💡 객실 삭제 시 재고 데이터 정리용 (RoomInventoryRepository 내부에 추가)
+    void deleteByRoom_RoomId(Long roomId);
 }

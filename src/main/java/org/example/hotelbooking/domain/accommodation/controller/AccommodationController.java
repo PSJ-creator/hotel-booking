@@ -50,29 +50,6 @@ public class AccommodationController {
         return ResponseEntity.ok(response);
     }
 
-    // 💡 새롭게 추가하는 숙소 등록 API
-    @PreAuthorize("hasRole('HOST')")
-    @PostMapping("/register")
-    public ResponseEntity<String> register(
-            @RequestBody AccommodationDto.RegisterRequest request,
-            @AuthenticationPrincipal String email // JWT 필터에서 넣어둔 유저 이메일
-    ) {
-        String contentId = accommodationService.register(email, request);
-        return ResponseEntity.ok("숙소 등록 완료! 숙소 ID: " + contentId);
-    }
-    @PreAuthorize("hasRole('HOST')")
-    @GetMapping("/my")
-    public ResponseEntity<List<AccommodationResponse>> getMyAccommodations(
-            // 혹시 CustomUserDetails 같은 객체로 꺼내야 한다면 여기서 에러가 나거나 null일 수 있습니다.
-            @AuthenticationPrincipal String email
-    ) {
-        // 💡 콘솔창에 이메일이 정상적으로 찍히는지 확인하는 코드!
-        System.out.println("토큰에서 꺼낸 이메일: " + email);
-
-        List<AccommodationResponse> myAccommodations = accommodationService.getMyAccommodations(email);
-        return ResponseEntity.ok(myAccommodations);
-    }
-
     // 💡 승인된 숙소 보유 여부 확인 API
     @GetMapping("/has-approved")
     public ResponseEntity<Boolean> checkApprovedAccommodation(@AuthenticationPrincipal String email) {
@@ -82,4 +59,53 @@ public class AccommodationController {
         boolean hasApproved = accommodationService.hasApprovedAccommodation(email);
         return ResponseEntity.ok(hasApproved);
     }
+
+    // 💡 1. 숙소 신규 등록 API
+    @PreAuthorize("hasRole('HOST')")
+    @PostMapping("/register")
+    public ResponseEntity<String> register(
+            @RequestBody AccommodationDto.RegisterRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        String contentId = accommodationService.register(email, request);
+        return ResponseEntity.ok(contentId);
+    }
+
+    // 💡 2. 호스트 내 숙소 상세 목록 조회 API (DB 전체 컬럼 반환)
+    @PreAuthorize("hasRole('HOST')")
+    @GetMapping("/my")
+    public ResponseEntity<List<AccommodationDto.HostDetailResponse>> getMyAccommodations(
+            @AuthenticationPrincipal String email
+    ) {
+        return ResponseEntity.ok(accommodationService.getMyAccommodations(email));
+    }
+
+    // 💡 3. [신규 추가] 호스트 내 숙소 정보 수정 API
+    @PreAuthorize("hasRole('HOST')")
+    @PutMapping("/{contentId}")
+    public ResponseEntity<String> updateMyAccommodation(
+            @PathVariable String contentId,
+            @RequestBody AccommodationDto.UpdateRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        accommodationService.updateMyAccommodation(email, contentId, request);
+        return ResponseEntity.ok("숙소 정보가 성공적으로 수정되었습니다.");
+    }
+
+    // 💡 4. [신규 추가] 호스트 내 숙소 삭제 API (진행 중 예약 없을 때만 허용)
+    @PreAuthorize("hasRole('HOST')")
+    @DeleteMapping("/{contentId}")
+    public ResponseEntity<?> deleteMyAccommodation(
+            @PathVariable String contentId,
+            @AuthenticationPrincipal String email
+    ) {
+        try {
+            accommodationService.deleteMyAccommodation(email, contentId);
+            return ResponseEntity.ok(Map.of("message", "숙소가 정상적으로 삭제되었습니다."));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+
 }

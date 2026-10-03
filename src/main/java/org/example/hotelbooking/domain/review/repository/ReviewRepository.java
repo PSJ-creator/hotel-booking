@@ -10,4 +10,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     // 💡 특정 예약건에 이미 리뷰가 작성되었는지 확인 (1예약 1리뷰 방어용)
     boolean existsByReservation_ReservationId(Long reservationId);
+
+    // 💡 숙소 삭제 시 해당 숙소에 작성된 리뷰 일괄 삭제
+    void deleteByAccommodation_ContentId(String contentId);
 }

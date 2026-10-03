@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Plus, Minus } from 'lucide-react';
 import type { TourSummary } from '../api/tours';
 
 declare const window: typeof globalThis & {
@@ -11,6 +12,7 @@ interface KakaoTourMapProps {
     level?: number;
     height?: string;
     mode?: 'search' | 'detail';
+    zoomable?: boolean; // 💡 마우스 휠 확대/축소 허용 여부 (기본값: true)
     onNavigateDetail?: () => void;
 }
 
@@ -19,9 +21,11 @@ export function KakaoTourMap({
                                  level,
                                  height = '520px',
                                  mode = 'search',
+                                 zoomable = true,
                                  onNavigateDetail
                              }: KakaoTourMapProps) {
     const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapInstanceRef = useRef<any>(null); // 💡 +/- 버튼 제어용 지도 인스턴스 보관
     const navigate = useNavigate();
     const [isLoaded, setIsLoaded] = useState(false);
 
@@ -32,7 +36,6 @@ export function KakaoTourMap({
         onNavigateDetailRef.current = onNavigateDetail;
         navigateRef.current = navigate;
     }, [onNavigateDetail, navigate]);
-
 
     // 1. 카카오 지도 SDK 동적 로드
     useEffect(() => {
@@ -109,6 +112,10 @@ export function KakaoTourMap({
                 center: centerPosition,
                 level: zoomLevel,
             });
+            mapInstanceRef.current = map;
+
+            // 💡 마우스 휠 확대/축소 잠금 또는 허용
+            map.setZoomable(zoomable);
 
             // [케이스 A] 관광지 상세페이지 하단 지도 모드
             if (isDetailPage && validTours.length > 0) {
@@ -119,6 +126,7 @@ export function KakaoTourMap({
                 });
 
                 const fullAddr = `${tour.addr1 || ''} ${tour.addr2 || ''}`.trim();
+                const uid = `${tour.contentId}-${zoomable ? 'popup' : 'inline'}`;
 
                 const detailCard = document.createElement('div');
                 detailCard.style.cssText = `
@@ -135,7 +143,7 @@ export function KakaoTourMap({
                 detailCard.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px;">
                         <span style="font-size: 11px; color: #0f766e; font-weight: 700;">JEJU ATTRACTION</span>
-                        <button id="btn-close-tour-detail-overlay" style="
+                        <button id="btn-close-tour-detail-overlay-${uid}" style="
                             background: none; border: none; font-size: 14px; color: #94a3b8; cursor: pointer; padding: 0 0 0 8px; line-height: 1;
                         ">✕</button>
                     </div>
@@ -146,11 +154,11 @@ export function KakaoTourMap({
                         ${fullAddr || '등록된 주소 정보 없음'}
                     </div>
                     <div style="display: flex; gap: 6px;">
-                        <button id="btn-copy-tour-addr" style="
+                        <button id="btn-copy-tour-addr-${uid}" style="
                             flex: 1; padding: 6px 0; background-color: #f1f5f9; color: #123f4d;
                             border: 1px solid #cbd5e1; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;
                         ">주소 복사</button>
-                        <button id="btn-close-tour-bottom" style="
+                        <button id="btn-close-tour-bottom-${uid}" style="
                             padding: 6px 12px; background-color: #ffffff; color: #64748b;
                             border: 1px solid #cbd5e1; border-radius: 6px; font-size: 11px; cursor: pointer;
                         ">닫기</button>
@@ -170,18 +178,29 @@ export function KakaoTourMap({
                 });
 
                 setTimeout(() => {
-                    const copyBtn = document.getElementById('btn-copy-tour-addr');
-                    const closeXBtn = document.getElementById('btn-close-tour-detail-overlay');
-                    const closeBottomBtn = document.getElementById('btn-close-tour-bottom');
+                    const copyBtn = document.getElementById(`btn-copy-tour-addr-${uid}`);
+                    const closeXBtn = document.getElementById(`btn-close-tour-detail-overlay-${uid}`);
+                    const closeBottomBtn = document.getElementById(`btn-close-tour-bottom-${uid}`);
 
                     if (copyBtn && fullAddr) {
-                        copyBtn.onclick = () => {
+                        copyBtn.onclick = (e) => {
+                            e.stopPropagation();
                             navigator.clipboard.writeText(fullAddr);
                             alert('주소가 클립보드에 복사되었습니다.');
                         };
                     }
-                    if (closeXBtn) closeXBtn.onclick = () => overlay.setMap(null);
-                    if (closeBottomBtn) closeBottomBtn.onclick = () => overlay.setMap(null);
+                    if (closeXBtn) {
+                        closeXBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            overlay.setMap(null);
+                        };
+                    }
+                    if (closeBottomBtn) {
+                        closeBottomBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            overlay.setMap(null);
+                        };
+                    }
                 }, 0);
 
                 return;
@@ -287,27 +306,104 @@ export function KakaoTourMap({
                 clusterer.addMarkers(markers);
             }
         });
-    }, [isLoaded, tours, level, mode]);
+    }, [isLoaded, tours, level, mode, zoomable]);
+
+    // 💡 우측 하단 확대(+) / 축소(-) 버튼 핸들러
+    const handleZoomIn = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (mapInstanceRef.current) {
+            mapInstanceRef.current.setLevel(mapInstanceRef.current.getLevel() - 1, { animate: true });
+        }
+    };
+
+    const handleZoomOut = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (mapInstanceRef.current) {
+            mapInstanceRef.current.setLevel(mapInstanceRef.current.getLevel() + 1, { animate: true });
+        }
+    };
 
     return (
-        <div
-            ref={mapContainerRef}
-            style={{
-                width: '100%',
-                height: height,
-                borderRadius: '16px',
-                border: '1px solid #e2e8f0',
-                overflow: 'hidden',
-                backgroundColor: '#f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-            }}
-        >
-            {!isLoaded && (
-                <span style={{ color: '#94a3b8', fontSize: '14px' }}>
-                    관광 지도를 불러오는 중입니다...
-                </span>
+        <div style={{ position: 'relative', width: '100%', height }}>
+            <div
+                ref={mapContainerRef}
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '16px',
+                    border: '1px solid #e2e8f0',
+                    overflow: 'hidden',
+                    backgroundColor: '#f1f5f9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                {!isLoaded && (
+                    <span style={{ color: '#94a3b8', fontSize: '14px' }}>
+                        관광 지도를 불러오는 중입니다...
+                    </span>
+                )}
+            </div>
+
+            {/* 💡 우측 하단 확대(+) / 축소(-) 컨트롤 버튼 */}
+            {isLoaded && (
+                <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                        position: 'absolute',
+                        right: '14px',
+                        bottom: '14px',
+                        zIndex: 10,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        backgroundColor: '#ffffff',
+                        borderRadius: '10px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                        border: '1px solid #cbd5e1',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <button
+                        type="button"
+                        onClick={handleZoomIn}
+                        title="지도 확대"
+                        aria-label="지도 확대"
+                        style={{
+                            width: '36px',
+                            height: '36px',
+                            border: 'none',
+                            borderBottom: '1px solid #e2e8f0',
+                            backgroundColor: '#ffffff',
+                            color: '#123f4d',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <Plus size={18} strokeWidth={2.5} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleZoomOut}
+                        title="지도 축소"
+                        aria-label="지도 축소"
+                        style={{
+                            width: '36px',
+                            height: '36px',
+                            border: 'none',
+                            backgroundColor: '#ffffff',
+                            color: '#123f4d',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <Minus size={18} strokeWidth={2.5} />
+                    </button>
+                </div>
             )}
         </div>
     );

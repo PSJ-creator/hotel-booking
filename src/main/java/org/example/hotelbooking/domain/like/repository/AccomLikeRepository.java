@@ -53,4 +53,7 @@ public interface AccomLikeRepository extends JpaRepository<AccomLike, Long> {
             @Param("stayDays") Long stayDays,
             @Param("guests") Integer guests
     );
+
+    // 💡 숙소 삭제 시 해당 숙소를 찜한 내역 일괄 삭제
+    void deleteByAccommodation_ContentId(String contentId);
 }

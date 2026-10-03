@@ -124,4 +124,27 @@ public class Accommodation {
         this.approvalStatus = (approvalStatus != null) ? approvalStatus : AccommodationStatus.PENDING;
         this.rejectReason = rejectReason;
     }
+
+    // 💡 호스트의 숙소 정보 수정 편의 메서드 (Accommodation.java 내부에 추가)
+    public void updateDetails(String title, String lodgingType, String tel, String zipcode,
+                              String addr, String checkinTime, String checkoutTime, String roomCount,
+                              String roomType, String parking, String subFacility, String overview,
+                              String firstImage, String firstImage2, String mapX, String mapY) {
+        this.title = title;
+        this.lodgingType = lodgingType;
+        this.tel = tel;
+        this.zipcode = zipcode;
+        this.addr = addr;
+        this.checkinTime = checkinTime;
+        this.checkoutTime = checkoutTime;
+        this.roomCount = roomCount;
+        this.roomType = roomType;
+        this.parking = parking;
+        this.subFacility = subFacility;
+        this.overview = overview;
+        this.firstImage = firstImage;
+        this.firstImage2 = firstImage2;
+        this.mapX = mapX;
+        this.mapY = mapY;
+    }
 }
