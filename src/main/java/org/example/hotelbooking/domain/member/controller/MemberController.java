@@ -64,10 +64,14 @@ public class MemberController {
         return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
     }
 
-    // 💡 숙소 관리자 탈퇴 (일반 유저 전환)
+    // 💡 숙소 관리자 탈퇴 (보유 숙소/예약 존재 시 400 에러와 사유 메시지 반환)
     @PatchMapping("/me/downgrade-host")
-    public ResponseEntity<AuthDto.TokenResponse> downgradeHost(@AuthenticationPrincipal String email) {
-        String newToken = memberService.downgradeHost(email);
-        return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
+    public ResponseEntity<?> downgradeHost(@AuthenticationPrincipal String email) {
+        try {
+            String newToken = memberService.downgradeHost(email);
+            return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 }

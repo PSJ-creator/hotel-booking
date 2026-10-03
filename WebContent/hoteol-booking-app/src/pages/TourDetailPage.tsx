@@ -12,13 +12,13 @@ import {
     CalendarOff,
     Ticket,
     CalendarCheck,
-    CircleDollarSign
+    CircleDollarSign,
+    Maximize2
 } from 'lucide-react';
 import { fetchTourDetail, toggleTourLike, type TourDetail } from '../api/tours';
 import { Footer } from '../components/Footer';
 import { KakaoTourMap } from '../components/KakaoTourMap';
 
-// 공공데이터 텍스트 내 <br>, <br/> 태그를 줄바꿈(\n)으로 변환하는 헬퍼
 function cleanHtmlText(text?: string): string {
     if (!text) return '';
     return text
@@ -36,6 +36,9 @@ export function TourDetailPage() {
     const [loading, setLoading] = useState(true);
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
+
+    // 💡 관광지 지도 크게 보기 팝업 모달 상태
+    const [isMapPopupOpen, setIsMapPopupOpen] = useState(false);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -87,15 +90,14 @@ export function TourDetailPage() {
         }
     };
 
-    // 모달 스크롤 잠금
+    // 갤러리 또는 지도 팝업 활성화 시 배경 스크롤 잠금
     useEffect(() => {
-        document.body.style.overflow = isGalleryOpen ? 'hidden' : 'unset';
+        document.body.style.overflow = (isGalleryOpen || isMapPopupOpen) ? 'hidden' : 'unset';
         return () => {
             document.body.style.overflow = 'unset';
         };
-    }, [isGalleryOpen]);
+    }, [isGalleryOpen, isMapPopupOpen]);
 
-    // 대표 이미지(FIRST_IMAGE) + 추가 이미지(TOUR_IMAGE) 통합 수집
     const allGalleryImages = useMemo(() => {
         if (!tour) return [];
         const urls: string[] = [];
@@ -130,7 +132,6 @@ export function TourDetailPage() {
     const mainImages = allGalleryImages.slice(0, 5);
     const fullAddress = `${tour.addr1 || ''} ${tour.addr2 || ''}`.trim();
 
-    // 테이블 속성 중 실제 값이 존재하는 항목만 카드 그리드에 표시
     const infoItems = [
         { icon: <Clock size={16} color="#0f766e" />, label: '이용시간', value: cleanHtmlText(tour.useTime) },
         { icon: <CalendarOff size={16} color="#e11d48" />, label: '쉬는날 (휴무일)', value: cleanHtmlText(tour.restDate) },
@@ -278,7 +279,6 @@ export function TourDetailPage() {
                     marginBottom: '24px',
                     position: 'relative'
                 }}>
-                    {/* 우측 상단 찜(하트) 버튼 */}
                     <button
                         type="button"
                         onClick={handleToggleLike}
@@ -336,7 +336,6 @@ export function TourDetailPage() {
                         </p>
                     )}
 
-                    {/* 존재하는 속성만 렌더링하는 운영/이용 정보 그리드 */}
                     {infoItems.length > 0 && (
                         <div style={{
                             display: 'grid',
@@ -385,14 +384,69 @@ export function TourDetailPage() {
 
                     {tour.mapX && tour.mapY && (
                         <>
-                            <h3 style={{ fontSize: '16px', color: '#0f172a', margin: '0 0 12px 0' }}>위치 안내</h3>
-                            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 12px 0' }}>
+                                <h3 style={{ fontSize: '16px', color: '#0f172a', margin: 0 }}>위치 안내</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsMapPopupOpen(true)}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        padding: '6px 12px',
+                                        borderRadius: '20px',
+                                        border: '1px solid #cbd5e1',
+                                        backgroundColor: '#f8fafc',
+                                        color: '#123f4d',
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <Maximize2 size={13} /> 지도 크게 보기
+                                </button>
+                            </div>
+
+                            {/* 💡 본문 지도: zoomable={false}로 스크롤 시 축소 방지, 클릭 시 팝업 오픈 */}
+                            <div
+                                onClick={() => setIsMapPopupOpen(true)}
+                                style={{
+                                    position: 'relative',
+                                    borderRadius: '12px',
+                                    overflow: 'hidden',
+                                    border: '1px solid #e2e8f0',
+                                    cursor: 'pointer'
+                                }}
+                            >
                                 <KakaoTourMap
                                     tours={[tour]}
                                     mode="detail"
                                     level={4}
                                     height="360px"
+                                    zoomable={false}
                                 />
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        top: '12px',
+                                        left: '12px',
+                                        backgroundColor: 'rgba(15, 23, 42, 0.78)',
+                                        backdropFilter: 'blur(4px)',
+                                        color: '#ffffff',
+                                        padding: '6px 12px',
+                                        borderRadius: '20px',
+                                        fontSize: '12px',
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        pointerEvents: 'none',
+                                        zIndex: 5,
+                                    }}
+                                >
+                                    <Maximize2 size={13} color="#5eead4" />
+                                    지도를 클릭하면 팝업창에서 마우스 휠 확대/축소가 가능합니다
+                                </div>
                             </div>
                         </>
                     )}
@@ -400,6 +454,87 @@ export function TourDetailPage() {
             </main>
 
             <Footer />
+
+            {/* 💡 지도 크게 보기 팝업 모달 (zoomable={true}로 마우스 휠 확대/축소 허용) */}
+            {isMapPopupOpen && tour.mapX && tour.mapY && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100vw',
+                        height: '100vh',
+                        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 3000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '24px'
+                    }}
+                    onClick={() => setIsMapPopupOpen(false)}
+                >
+                    <div
+                        style={{
+                            width: '100%',
+                            maxWidth: '1000px',
+                            height: '82vh',
+                            maxHeight: '740px',
+                            backgroundColor: '#ffffff',
+                            borderRadius: '24px',
+                            padding: '24px 28px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+                            position: 'relative',
+                            boxSizing: 'border-box'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <div>
+                                <span style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e', display: 'block', marginBottom: '2px' }}>
+                                    ATTRACTION LOCATION MAP
+                                </span>
+                                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>
+                                    {tour.title} 위치 안내
+                                </h3>
+                                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+                                    마우스 휠 또는 우측 하단 +/- 버튼으로 지도를 자유롭게 확대·축소할 수 있습니다.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsMapPopupOpen(false)}
+                                style={{
+                                    width: '36px',
+                                    height: '36px',
+                                    borderRadius: '50%',
+                                    border: 'none',
+                                    backgroundColor: '#f1f5f9',
+                                    color: '#64748b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{ flex: 1, minHeight: 0, borderRadius: '16px', overflow: 'hidden' }}>
+                            <KakaoTourMap
+                                tours={[tour]}
+                                mode="detail"
+                                level={4}
+                                height="100%"
+                                zoomable={true}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* 전체 사진 보기 모달 */}
             {isGalleryOpen && (

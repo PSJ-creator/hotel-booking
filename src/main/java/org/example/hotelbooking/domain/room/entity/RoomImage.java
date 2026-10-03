@@ -22,4 +22,11 @@ public class RoomImage {
 
     @Column(name = "DISPLAY_ORDER")
     private Integer displayOrder;
+
+    @Builder
+    public RoomImage(Room room, String imageUrl, Integer displayOrder) {
+        this.room = room;
+        this.imageUrl = imageUrl;
+        this.displayOrder = displayOrder;
+    }
 }

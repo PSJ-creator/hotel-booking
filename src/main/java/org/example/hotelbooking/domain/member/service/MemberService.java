@@ -1,17 +1,23 @@
 package org.example.hotelbooking.domain.member.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
 import org.example.hotelbooking.domain.member.dto.MemberDto;
 import org.example.hotelbooking.domain.member.entity.Member;
 import org.example.hotelbooking.domain.member.entity.Role;
 import org.example.hotelbooking.domain.member.repository.MemberRepository;
 import org.example.hotelbooking.domain.member.repository.RoleRepository;
+import org.example.hotelbooking.domain.reservation.entity.Reservation;
+import org.example.hotelbooking.domain.reservation.repository.ReservationRepository;
 import org.example.hotelbooking.global.security.JwtTokenProvider;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -20,6 +26,8 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final RoleRepository roleRepository;
+    private final AccommodationRepository accommodationRepository;
+    private final ReservationRepository reservationRepository;
     private final MailService mailService;
     private final StringRedisTemplate redisTemplate;
     private final PasswordEncoder passwordEncoder;
@@ -129,7 +137,7 @@ public class MemberService {
         return jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
     }
 
-    // 💡 3. 숙소 관리자 탈퇴 (일반 유저 ROLE_USER로 강등)
+    // 💡 3. 숙소 관리자 탈퇴 (보유 숙소 또는 진행 예정 예약이 있으면 차단!)
     @Transactional
     public String downgradeHost(String email) {
         Member member = memberRepository.findByEmail(email)
@@ -139,12 +147,29 @@ public class MemberService {
             throw new IllegalArgumentException("숙소 관리자 권한을 가진 회원만 신청할 수 있습니다.");
         }
 
+        // [검증 1] 내 숙소에 투숙 예정/진행 중인 예약이 남아있는지 확인
+        LocalDate today = LocalDate.now();
+        List<Reservation> hostReservations = reservationRepository.findReservationsByHostId(member.getMemberId());
+        boolean hasUpcomingReservation = hostReservations.stream()
+                .anyMatch(r -> !"CANCELED".equals(r.getStatus()) && r.getCheckOutDate().isAfter(today));
+
+        if (hasUpcomingReservation) {
+            throw new IllegalStateException("현재 투숙 예정이거나 진행 중인 예약이 존재하여 숙소 관리자 자격을 해지할 수 없습니다.");
+        }
+
+        // [검증 2] 등록된 숙소가 존재하는지 확인
+        List<Accommodation> myAccommodations = accommodationRepository.findByHost_Email(email);
+        if (!myAccommodations.isEmpty()) {
+            throw new IllegalStateException(
+                    "등록된 숙소(" + myAccommodations.size() + "곳)가 존재하여 숙소 관리자 자격을 해지할 수 없습니다. 더이상 서비스하지 않는 경우 숙소 삭제 후 해지 바랍니다."
+            );
+        }
+
         Role userRole = roleRepository.findByRoleName("ROLE_USER")
                 .orElseThrow(() -> new IllegalArgumentException("ROLE_USER 권한이 존재하지 않습니다."));
 
         member.downgradeToUser(userRole);
 
-        // 변경된 ROLE_USER 권한이 반영된 새 JWT 토큰 반환
         return jwtTokenProvider.createToken(member.getEmail(), userRole.getRoleName(), member.getName());
     }
 }

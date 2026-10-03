@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface RoomImageRepository extends JpaRepository<RoomImage, Long> {
-    // 💡 특정 객실의 사진들을 '정렬 순서(DisplayOrder)'에 맞춰서 가져오는 메서드
     List<RoomImage> findByRoom_RoomIdOrderByDisplayOrderAsc(Long roomId);
+
+    // 💡 객실 수정/삭제 시 기존 이미지 정리용
+    void deleteByRoom_RoomId(Long roomId);
 }

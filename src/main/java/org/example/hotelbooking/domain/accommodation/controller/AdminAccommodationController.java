@@ -1,7 +1,7 @@
 package org.example.hotelbooking.domain.accommodation.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.example.hotelbooking.domain.accommodation.dto.AccommodationResponse;
+import org.example.hotelbooking.domain.accommodation.dto.AccommodationDto;
 import org.example.hotelbooking.domain.accommodation.dto.AdminRejectRequest;
 import org.example.hotelbooking.domain.accommodation.service.AccommodationService;
 import org.springframework.http.ResponseEntity;
@@ -13,14 +13,14 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/admin/accommodations")
-@PreAuthorize("hasRole('ADMIN')") // 💡 관리자 권한 필수
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminAccommodationController {
 
     private final AccommodationService accommodationService;
 
-    // 1. 대기 중인 숙소 목록 조회
+    // 1. 대기 중인 숙소 목록 상세 조회
     @GetMapping("/pending")
-    public ResponseEntity<List<AccommodationResponse>> getPendingAccommodations() {
+    public ResponseEntity<List<AccommodationDto.HostDetailResponse>> getPendingAccommodations() {
         return ResponseEntity.ok(accommodationService.getPendingAccommodations());
     }
 

@@ -15,12 +15,16 @@ import {
     X,
     ChevronDown,
     Heart,
-    Calendar
+    Calendar,
+    Compass,
+    Maximize2
 } from 'lucide-react';
 import { money, getLodgingTypeName } from '../data/stays';
 import { Footer } from '../components/Footer';
 import { KakaoStayMap } from "../components/KakaoMap.tsx";
+import { TourSliderSection } from "../components/TourSliderSection.tsx"; // 💡 공통 관광지 슬라이더 컴포넌트 재사용
 import { toggleAccommodationLike } from "../api/stays.ts";
+import { fetchNearbyTours, type NearbyTourItem } from "../api/tours.ts";
 
 interface RoomDto {
     roomId: number;
@@ -29,7 +33,7 @@ interface RoomDto {
     roomBaseCount: string;
     roomMaxCount: string;
     pricePerNight: number;
-    availableCount?: number; // 💡 잔여 객실 수
+    availableCount?: number;
     imageUrls: string[];
 }
 
@@ -68,7 +72,6 @@ export function StayDetailPage() {
         return d.toISOString().split('T')[0];
     }, []);
 
-    // 이전 페이지에서 넘어온 날짜가 있으면 사용하고, 없으면 오늘~내일 기본값 세팅
     const incomingDates = (location.state as { checkIn?: string; checkOut?: string }) || {};
     const [checkIn, setCheckIn] = useState(incomingDates.checkIn || todayStr);
     const [checkOut, setCheckOut] = useState(incomingDates.checkOut || tomorrowStr);
@@ -79,7 +82,13 @@ export function StayDetailPage() {
     const [isSellerInfoOpen, setIsSellerInfoOpen] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
 
-    // 찜 상태 확인
+    // 지도 크게 보기 팝업 모달 상태
+    const [isMapPopupOpen, setIsMapPopupOpen] = useState(false);
+
+    // 💡 주변 20km 이내 관광지 목록 (최대 9개)
+    const [nearbyTours, setNearbyTours] = useState<NearbyTourItem[]>([]);
+
+    // 숙소 찜 상태 확인
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token && contentId) {
@@ -92,7 +101,7 @@ export function StayDetailPage() {
         }
     }, [contentId]);
 
-    // 찜 토글 핸들러
+    // 숙소 찜 토글 핸들러
     const handleToggleLike = async () => {
         const token = localStorage.getItem('accessToken');
         if (!token) {
@@ -134,9 +143,20 @@ export function StayDetailPage() {
             .finally(() => setLoading(false));
     }, [contentId, checkIn, checkOut, navigate]);
 
-    // 모달 활성화 시 배경 스크롤 방지
+    // Redis 기반 반경 20km 이내 주변 관광지 최대 9개 조회
     useEffect(() => {
-        if (isGalleryOpen) {
+        if (!contentId) return;
+        fetchNearbyTours(contentId)
+            .then((data) => setNearbyTours(data.slice(0, 9)))
+            .catch((err) => {
+                console.error('주변 관광지 조회 실패:', err);
+                setNearbyTours([]);
+            });
+    }, [contentId]);
+
+    // 갤러리 또는 지도 팝업 활성화 시 배경 스크롤 방지
+    useEffect(() => {
+        if (isGalleryOpen || isMapPopupOpen) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'unset';
@@ -144,9 +164,8 @@ export function StayDetailPage() {
         return () => {
             document.body.style.overflow = 'unset';
         };
-    }, [isGalleryOpen]);
+    }, [isGalleryOpen, isMapPopupOpen]);
 
-    // 숙소 대표 이미지 + 객실별 사진 수집
     const allGalleryImages = useMemo(() => {
         if (!stay) return [];
         const set = new Set<string>();
@@ -403,7 +422,7 @@ export function StayDetailPage() {
                     </div>
                 </section>
 
-                {/* 3. 숙소 소개 및 편의시설 */}
+                {/* 3. 숙소 소개 및 찾아오시는 길 */}
                 <section style={{
                     backgroundColor: '#ffffff',
                     borderRadius: '16px',
@@ -448,20 +467,76 @@ export function StayDetailPage() {
                         </>
                     )}
 
-                    <h3 style={{ fontSize: '15px', color: '#0f172a', margin: '24px 0 12px 0' }}>찾아오시는 길</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '24px 0 12px 0' }}>
+                        <h3 style={{ fontSize: '15px', color: '#0f172a', margin: 0 }}>찾아오시는 길</h3>
+                        {stay.mapX && stay.mapY && (
+                            <button
+                                type="button"
+                                onClick={() => setIsMapPopupOpen(true)}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '6px 12px',
+                                    borderRadius: '20px',
+                                    border: '1px solid #cbd5e1',
+                                    backgroundColor: '#f8fafc',
+                                    color: '#123f4d',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <Maximize2 size={13} /> 지도 크게 보기
+                            </button>
+                        )}
+                    </div>
+
                     {stay.mapX && stay.mapY && (
-                        <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                        <div
+                            onClick={() => setIsMapPopupOpen(true)}
+                            style={{
+                                position: 'relative',
+                                borderRadius: '12px',
+                                overflow: 'hidden',
+                                border: '1px solid #e2e8f0',
+                                cursor: 'pointer'
+                            }}
+                        >
                             <KakaoStayMap
                                 stays={[{ ...stay, basePrice: 0 } as any]}
                                 mode="detail"
                                 level={4}
                                 height="360px"
+                                zoomable={false}
                             />
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    top: '12px',
+                                    left: '12px',
+                                    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+                                    backdropFilter: 'blur(4px)',
+                                    color: '#ffffff',
+                                    padding: '6px 12px',
+                                    borderRadius: '20px',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    pointerEvents: 'none',
+                                    zIndex: 5,
+                                }}
+                            >
+                                <Maximize2 size={13} color="#5eead4" />
+                                지도를 클릭하면 팝업창에서 마우스 휠 확대/축소가 가능합니다
+                            </div>
                         </div>
                     )}
                 </section>
 
-                {/* 4. 객실 선택 (상단 날짜 선택 바 포함) */}
+                {/* 4. 객실 선택 */}
                 <section style={{
                     backgroundColor: '#ffffff',
                     borderRadius: '16px',
@@ -479,7 +554,6 @@ export function StayDetailPage() {
                     }}>
                         <h2 style={{ fontSize: '18px', color: '#0f172a', margin: 0 }}>객실 선택</h2>
 
-                        {/* 💡 상세페이지 내 체크인/체크아웃 일정 변경 바 */}
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -555,7 +629,45 @@ export function StayDetailPage() {
                     )}
                 </section>
 
-                {/* 5. 판매자 정보 */}
+                {/* 💡 5. 판매자 정보 상단: 공통 TourSliderSection 컴포넌트 재사용 */}
+                {nearbyTours.length > 0 && (
+                    <section style={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '16px',
+                        padding: '28px',
+                        border: '1px solid #e2e8f0',
+                        marginBottom: '24px',
+                        position: 'relative'
+                    }}>
+                        <TourSliderSection
+                            tours={nearbyTours}
+                            headerRender={
+                                <div>
+                                    <span style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        fontSize: '12px',
+                                        fontWeight: 800,
+                                        color: '#0f766e',
+                                        letterSpacing: '0.04em',
+                                        marginBottom: '4px'
+                                    }}>
+                                        <Compass size={14} /> NEARBY ATTRACTIONS (20KM 이내)
+                                    </span>
+                                    <h2 style={{ fontSize: '19px', color: '#0f172a', margin: '0 0 4px 0', fontWeight: 800 }}>
+                                        이 숙소에서 가까운 추천 관광지
+                                    </h2>
+                                    <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                                        숙소 위치 기준 반경 20km 이내의 가까운 제주 명소 {nearbyTours.length}곳입니다.
+                                    </p>
+                                </div>
+                            }
+                        />
+                    </section>
+                )}
+
+                {/* 6. 판매자 정보 */}
                 <section style={{
                     backgroundColor: '#ffffff',
                     borderRadius: '16px',
@@ -620,7 +732,88 @@ export function StayDetailPage() {
 
             <Footer />
 
-            {/* 6. 전체 사진 보기 모달 */}
+            {/* 7. 지도 크게 보기 팝업 모달 */}
+            {isMapPopupOpen && stay.mapX && stay.mapY && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100vw',
+                        height: '100vh',
+                        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 3000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '24px'
+                    }}
+                    onClick={() => setIsMapPopupOpen(false)}
+                >
+                    <div
+                        style={{
+                            width: '100%',
+                            maxWidth: '1000px',
+                            height: '82vh',
+                            maxHeight: '740px',
+                            backgroundColor: '#ffffff',
+                            borderRadius: '24px',
+                            padding: '24px 28px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+                            position: 'relative',
+                            boxSizing: 'border-box'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <div>
+                                <span style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e', display: 'block', marginBottom: '2px' }}>
+                                    STAY LOCATION MAP
+                                </span>
+                                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>
+                                    {stay.title} 위치 안내
+                                </h3>
+                                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+                                    마우스 휠 또는 우측 하단 +/- 버튼으로 지도를 자유롭게 확대·축소할 수 있습니다.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsMapPopupOpen(false)}
+                                style={{
+                                    width: '36px',
+                                    height: '36px',
+                                    borderRadius: '50%',
+                                    border: 'none',
+                                    backgroundColor: '#f1f5f9',
+                                    color: '#64748b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{ flex: 1, minHeight: 0, borderRadius: '16px', overflow: 'hidden' }}>
+                            <KakaoStayMap
+                                stays={[{ ...stay, basePrice: 0 } as any]}
+                                mode="detail"
+                                level={4}
+                                height="100%"
+                                zoomable={true}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 8. 전체 사진 보기 모달 */}
             {isGalleryOpen && (
                 <div
                     style={{
@@ -742,7 +935,6 @@ function RoomCard({
     const hasImages = room.imageUrls && room.imageUrls.length > 0;
     const [activeImage, setActiveImage] = useState<string>(hasImages ? room.imageUrls[0] : '');
 
-    // 💡 잔여 객실 수 계산 및 마감 여부 판별
     const availableCount = room.availableCount ?? 0;
     const isSoldOut = availableCount <= 0;
     const isUrgent = availableCount > 0 && availableCount <= 3;
@@ -903,7 +1095,6 @@ function RoomCard({
                                 {room.roomTitle}
                             </h3>
 
-                            {/* 💡 객실별 잔여 수량 뱃지 */}
                             <span
                                 style={{
                                     padding: '3px 10px',
@@ -955,7 +1146,6 @@ function RoomCard({
                             </strong>
                         </div>
 
-                        {/* 💡 잔여 0실일 때 예약하기 버튼 비활성화 */}
                         <button
                             type="button"
                             disabled={isSoldOut}
