@@ -74,4 +74,15 @@ public class MemberController {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
+
+    // 💡 회원 탈퇴 API
+    @DeleteMapping("/me")
+    public ResponseEntity<?> withdrawMember(@AuthenticationPrincipal String email) {
+        try {
+            memberService.withdrawMember(email);
+            return ResponseEntity.ok(Map.of("message", "회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다."));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
 }

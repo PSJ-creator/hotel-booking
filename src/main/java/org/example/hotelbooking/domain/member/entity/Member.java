@@ -30,6 +30,10 @@ public class Member {
     @Column(name = "BUSINESS_NO", unique = true, length = 50)
     private String businessNo;
 
+    // 💡 DB의 STATUS 컬럼 매핑 ('ACTIVE', 'BLOCKED', 'WITHDRAWN', 'BANNED')
+    @Column(name = "STATUS", length = 20)
+    private String status;
+
     @Column(name = "CREATED_AT", updatable = false)
     private LocalDateTime createdAt;
 
@@ -62,5 +66,19 @@ public class Member {
     public void downgradeToUser(Role userRole) {
         this.role = userRole;
         this.businessNo = null; // 사업자번호 초기화
+    }
+
+    // 💡 회원 탈퇴 처리 편의 메서드
+    // 1) status를 'WITHDRAWN'으로 변경
+    // 2) 동일 이메일 재가입이 가능하도록 email을 고유한 unknown 형태로 변경 (UNIQUE 충돌 방지)
+    // 3) 이름을 'Unknown'으로 변경 및 사업자번호 null 초기화
+    public void withdraw(Role userRole) {
+        this.status = "WITHDRAWN";
+        this.name = "Unknown";
+        this.email = "unknown_" + this.memberId + "_" + System.currentTimeMillis() + "@withdrawn.com";
+        this.businessNo = null;
+        if (userRole != null) {
+            this.role = userRole;
+        }
     }
 }

@@ -172,4 +172,41 @@ public class MemberService {
 
         return jwtTokenProvider.createToken(member.getEmail(), userRole.getRoleName(), member.getName());
     }
+
+    // 💡 4. 회원 탈퇴 (status -> WITHDRAWN, 이름/이메일 Unknown 처리)
+    @Transactional
+    public void withdrawMember(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        LocalDate today = LocalDate.now();
+
+        // [검증 1] 일반 유저(게스트)로서 체크아웃 전인 진행 예정 예약이 있는지 확인
+        List<Reservation> myGuestReservations = reservationRepository
+                .findByMember_MemberIdOrderByCreatedAtDesc(member.getMemberId());
+        boolean hasUpcomingGuestRes = myGuestReservations.stream()
+                .anyMatch(r -> !"CANCELED".equals(r.getStatus()) && r.getCheckOutDate().isAfter(today));
+
+        if (hasUpcomingGuestRes) {
+            throw new IllegalStateException("이용 예정이거나 투숙 중인 예약이 존재하여 탈퇴할 수 없습니다. 예약을 먼저 취소해 주세요.");
+        }
+
+        // [검증 2] 호스트(ROLE_HOST)인 경우 보유 숙소나 호스트 예약이 남아있는지 확인
+        if ("ROLE_HOST".equals(member.getRole().getRoleName())) {
+            List<Reservation> hostReservations = reservationRepository.findReservationsByHostId(member.getMemberId());
+            boolean hasUpcomingHostRes = hostReservations.stream()
+                    .anyMatch(r -> !"CANCELED".equals(r.getStatus()) && r.getCheckOutDate().isAfter(today));
+
+            List<Accommodation> myAccommodations = accommodationRepository.findByHost_Email(email);
+
+            if (hasUpcomingHostRes || !myAccommodations.isEmpty()) {
+                throw new IllegalStateException("보유 중인 숙소 또는 진행 예정인 예약이 존재하여 탈퇴할 수 없습니다. 숙소 삭제 후 다시 시도해 주세요.");
+            }
+        }
+
+        Role userRole = roleRepository.findByRoleName("ROLE_USER").orElse(member.getRole());
+
+        // 상태 WITHDRAWN 변경 및 이메일/이름 Unknown 처리 (기존 예약·리뷰 FK는 깨지지 않고 유지됨!)
+        member.withdraw(userRole);
+    }
 }

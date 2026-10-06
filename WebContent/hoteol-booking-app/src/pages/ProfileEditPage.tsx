@@ -23,6 +23,7 @@ export function ProfileEditPage() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [withdrawing, setWithdrawing] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
     useEffect(() => {
@@ -111,9 +112,36 @@ export function ProfileEditPage() {
         }
     };
 
-    // 회원 탈퇴 버튼 클릭 (준비 중 알림)
-    const handleWithdraw = () => {
-        alert('회원 탈퇴 기능은 현재 준비 중입니다.');
+    // 💡 회원 탈퇴 버튼 클릭 (WITHDRAWN 상태 변경 및 이메일/이름 Unknown 처리)
+    const handleWithdraw = async () => {
+        const confirmWithdraw = window.confirm(
+            '정말 제주 야호 회원을 탈퇴하시겠습니까?\n\n' +
+            '· 이용 예정인 예약이나 보유하신 숙소가 있는 경우 탈퇴할 수 없습니다.\n' +
+            '· 탈퇴 시 계정은 즉시 비활성화 처리되며 로그아웃됩니다.'
+        );
+        if (!confirmWithdraw) return;
+
+        setWithdrawing(true);
+        setErrorMessage('');
+        const token = localStorage.getItem('accessToken');
+
+        try {
+            const res = await axios.delete('/api/v1/members/me', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            localStorage.removeItem('accessToken');
+            alert(res.data?.message || '회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.');
+            window.location.href = '/';
+        } catch (err: any) {
+            alert(
+                err.response?.data?.message ||
+                err.response?.data ||
+                '회원 탈퇴 처리 중 오류가 발생했습니다.'
+            );
+        } finally {
+            setWithdrawing(false);
+        }
     };
 
     if (loading) {
@@ -180,7 +208,7 @@ export function ProfileEditPage() {
                             </span>
                         </div>
 
-                        {/* 2. 이름*/}
+                        {/* 2. 이름 */}
                         <div style={{ marginBottom: '22px' }}>
                             <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
                                 이름
@@ -277,22 +305,23 @@ export function ProfileEditPage() {
                             borderTop: '1px solid #f1f5f9',
                             gap: '12px'
                         }}>
-                            {/* 좌측 끝: 회원탈퇴 버튼 (차후 구현용) */}
+                            {/* 좌측 끝: 회원탈퇴 버튼 */}
                             <button
                                 type="button"
+                                disabled={withdrawing || saving}
                                 onClick={handleWithdraw}
                                 style={{
                                     background: 'none',
                                     border: 'none',
                                     color: '#94a3b8',
                                     fontSize: '13px',
-                                    cursor: 'pointer',
+                                    cursor: withdrawing || saving ? 'not-allowed' : 'pointer',
                                     textDecoration: 'underline',
                                     padding: '6px 0',
                                     whiteSpace: 'nowrap'
                                 }}
                             >
-                                회원탈퇴
+                                {withdrawing ? '탈퇴 처리 중...' : '회원탈퇴'}
                             </button>
 
                             {/* 우측 그룹 (중간: 숙소 관리자 탈퇴 / 우측 끝: 회원정보 수정) */}
@@ -300,6 +329,7 @@ export function ProfileEditPage() {
                                 {profile.role === 'ROLE_HOST' && (
                                     <button
                                         type="button"
+                                        disabled={saving || withdrawing}
                                         onClick={handleDowngradeHost}
                                         style={{
                                             padding: '11px 16px',
@@ -309,7 +339,7 @@ export function ProfileEditPage() {
                                             borderRadius: '8px',
                                             fontSize: '13px',
                                             fontWeight: 600,
-                                            cursor: 'pointer',
+                                            cursor: saving || withdrawing ? 'not-allowed' : 'pointer',
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: '5px',
@@ -322,7 +352,7 @@ export function ProfileEditPage() {
 
                                 <button
                                     type="submit"
-                                    disabled={saving}
+                                    disabled={saving || withdrawing}
                                     style={{
                                         padding: '11px 22px',
                                         backgroundColor: '#123f4d',
@@ -331,7 +361,7 @@ export function ProfileEditPage() {
                                         borderRadius: '8px',
                                         fontSize: '14px',
                                         fontWeight: 700,
-                                        cursor: saving ? 'not-allowed' : 'pointer',
+                                        cursor: saving || withdrawing ? 'not-allowed' : 'pointer',
                                         whiteSpace: 'nowrap'
                                     }}
                                 >

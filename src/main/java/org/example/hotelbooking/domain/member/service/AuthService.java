@@ -50,6 +50,11 @@ public class AuthService {
         Member member = memberRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
 
+        // 탈퇴한 계정(WITHDRAWN)인지 확인
+        if ("WITHDRAWN".equals(member.getStatus())) {
+            throw new IllegalArgumentException("이미 탈퇴 처리된 계정입니다.");
+        }
+
         // 2. 비밀번호 일치 여부 확인 (입력된 평문 비밀번호 vs DB의 암호화된 비밀번호)
         if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
