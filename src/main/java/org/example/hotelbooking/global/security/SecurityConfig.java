@@ -41,6 +41,8 @@ public class SecurityConfig {
 
                 // API 접근 권한 설정
                 .authorizeHttpRequests(auth -> auth
+                        // 💡 스프링 부트 기본 에러 페이지 포워딩 시 403 마스킹 방지
+                        .requestMatchers("/error").permitAll()
 
                         // 로그인 / 회원가입
                         .requestMatchers("/api/v1/auth/**").permitAll()
@@ -59,6 +61,9 @@ public class SecurityConfig {
 
                         // 토스페이먼츠 클라이언트 키 조회 허용
                         .requestMatchers("/api/v1/payments/client-key").permitAll()
+
+                        // 숙소 리뷰 조회 허용
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/reviews/stays/**").permitAll()
 
                         // 그 외 요청은 JWT 인증 필요
                         .anyRequest().authenticated()
@@ -110,4 +115,6 @@ public class SecurityConfig {
 
         return source;
     }
+
+
 }

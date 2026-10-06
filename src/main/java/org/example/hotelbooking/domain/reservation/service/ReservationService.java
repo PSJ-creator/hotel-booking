@@ -1,8 +1,10 @@
 package org.example.hotelbooking.domain.reservation.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
 import org.example.hotelbooking.domain.member.entity.Member;
 import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.member.service.MailService;
 import org.example.hotelbooking.domain.reservation.dto.ReservationDto;
 import org.example.hotelbooking.domain.reservation.entity.Reservation;
 import org.example.hotelbooking.domain.reservation.repository.ReservationRepository;
@@ -26,6 +28,7 @@ public class ReservationService {
     private final MemberRepository memberRepository;
     private final RoomRepository roomRepository;
     private final ReviewRepository reviewRepository;
+    private final MailService mailService;
 
     @Transactional
     public void createReservation(Long memberId, Long roomId, LocalDate checkIn, LocalDate checkOut, Integer totalPrice) {
@@ -59,7 +62,25 @@ public class ReservationService {
                 .status("COMPLETED")
                 .build();
 
-        reservationRepository.save(reservation);
+        Reservation savedReservation = reservationRepository.save(reservation);
+
+        // 💡 5. 예약 확정 안내 이메일 비동기 발송
+        Accommodation accom = room.getAccommodation();
+        mailService.sendReservationConfirmation(
+                member.getEmail(),
+                member.getName(),
+                savedReservation.getReservationId(),
+                accom.getContentId(),
+                accom.getTitle(),
+                accom.getAddr(),
+                accom.getTel(),
+                accom.getCheckinTime(),
+                accom.getCheckoutTime(),
+                room.getRoomTitle(),
+                checkIn,
+                checkOut,
+                totalPrice
+        );
     }
     // 기존 createReservation 아래에 추가
     @Transactional
