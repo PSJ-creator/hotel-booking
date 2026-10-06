@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -12,9 +12,11 @@ import {
     XCircle,
     MessageSquarePlus,
     CheckCircle2,
-    CalendarX
+    CalendarX,
+    X
 } from 'lucide-react';
 import { money, getLodgingTypeName } from '../data/stays';
+import { createStayReview } from '../api/reviews';
 import { Footer } from '../components/Footer';
 
 export interface MyReservationItem {
@@ -51,6 +53,12 @@ export function MyReservationsPage() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
     const [cancelingId, setCancelingId] = useState<number | null>(null);
+
+    // 💡 리뷰 작성 모달 상태 (반드시 MyReservationsPage 함수 내부에 위치해야 함!)
+    const [reviewTarget, setReviewTarget] = useState<MyReservationItem | null>(null);
+    const [rating, setRating] = useState<number>(5);
+    const [reviewContent, setReviewContent] = useState<string>('');
+    const [submittingReview, setSubmittingReview] = useState<boolean>(false);
 
     const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -141,7 +149,6 @@ export function MyReservationsPage() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             alert('예약이 정상적으로 취소되었습니다.');
-            // 상태 즉시 업데이트
             setReservations((prev) =>
                 prev.map((r) =>
                     r.reservationId === item.reservationId ? { ...r, status: 'CANCELED' } : r
@@ -151,6 +158,33 @@ export function MyReservationsPage() {
             alert(err.response?.data?.message || err.response?.data || '예약 취소 처리 중 오류가 발생했습니다.');
         } finally {
             setCancelingId(null);
+        }
+    };
+
+    // 리뷰 등록 제출 핸들러
+    const handleReviewSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!reviewTarget) return;
+        if (!reviewContent.trim()) {
+            alert('리뷰 내용을 입력해 주세요.');
+            return;
+        }
+
+        setSubmittingReview(true);
+        try {
+            await createStayReview({
+                reservationId: reviewTarget.reservationId,
+                rating,
+                content: reviewContent.trim(),
+            });
+            alert('소중한 리뷰가 등록되었습니다!');
+            setReviewTarget(null);
+            setReviewContent('');
+            loadMyReservations();
+        } catch (err: any) {
+            alert(err.response?.data?.message || '리뷰 등록 중 오류가 발생했습니다.');
+        } finally {
+            setSubmittingReview(false);
         }
     };
 
@@ -556,7 +590,11 @@ export function MyReservationsPage() {
                                                 ) : (
                                                     <button
                                                         type="button"
-                                                        onClick={() => alert('리뷰 작성 모달은 다음 단계에서 연결할 수 있습니다.')}
+                                                        onClick={() => {
+                                                            setReviewTarget(item);
+                                                            setRating(5);
+                                                            setReviewContent('');
+                                                        }}
                                                         style={{
                                                             padding: '9px 16px',
                                                             backgroundColor: '#123f4d',
@@ -585,6 +623,155 @@ export function MyReservationsPage() {
             </main>
 
             <Footer />
+
+            {/* 💡 리뷰 작성 팝업 모달 */}
+            {reviewTarget && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100vw',
+                        height: '100vh',
+                        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                        backdropFilter: 'blur(3px)',
+                        zIndex: 3000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px'
+                    }}
+                    onClick={() => setReviewTarget(null)}
+                >
+                    <form
+                        onSubmit={handleReviewSubmit}
+                        style={{
+                            width: '100%',
+                            maxWidth: '460px',
+                            backgroundColor: '#ffffff',
+                            borderRadius: '18px',
+                            padding: '28px',
+                            boxShadow: '0 20px 30px rgba(0, 0, 0, 0.25)',
+                            position: 'relative'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setReviewTarget(null)}
+                            style={{
+                                position: 'absolute',
+                                top: '20px',
+                                right: '20px',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: '#64748b'
+                            }}
+                        >
+                            <X size={20} />
+                        </button>
+
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e', display: 'block', marginBottom: '4px' }}>
+                            WRITE A REVIEW
+                        </span>
+                        <h3 style={{ margin: '0 0 6px 0', fontSize: '19px', fontWeight: 800, color: '#0f172a' }}>
+                            {reviewTarget.stayTitle}
+                        </h3>
+                        <p style={{ margin: '0 0 18px 0', fontSize: '13px', color: '#64748b' }}>
+                            이용 객실: {reviewTarget.roomTitle} ({reviewTarget.checkInDate} ~ {reviewTarget.checkOutDate})
+                        </p>
+
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                                숙소 만족도 (별점)
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {[1, 2, 3, 4, 5].map((num) => (
+                                    <button
+                                        key={num}
+                                        type="button"
+                                        onClick={() => setRating(num)}
+                                        style={{
+                                            fontSize: '28px',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            padding: '0 2px',
+                                            color: num <= rating ? '#f59e0b' : '#cbd5e1',
+                                            transition: 'transform 0.1s ease'
+                                        }}
+                                    >
+                                        ★
+                                    </button>
+                                ))}
+                                <span style={{ marginLeft: '8px', fontSize: '14px', fontWeight: 700, color: '#0f766e' }}>
+                                    {rating}.0점
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '20px' }}>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                                상세 리뷰 내용
+                            </label>
+                            <textarea
+                                rows={4}
+                                required
+                                value={reviewContent}
+                                onChange={(e) => setReviewContent(e.target.value)}
+                                placeholder="숙소의 청결도, 위치, 친절도 등 솔직한 숙박 후기를 남겨주세요."
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '10px',
+                                    border: '1px solid #cbd5e1',
+                                    fontSize: '13px',
+                                    boxSizing: 'border-box',
+                                    outline: 'none',
+                                    resize: 'vertical',
+                                    lineHeight: 1.5
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                            <button
+                                type="button"
+                                onClick={() => setReviewTarget(null)}
+                                style={{
+                                    padding: '10px 18px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #cbd5e1',
+                                    backgroundColor: '#ffffff',
+                                    color: '#475569',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                취소
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={submittingReview}
+                                style={{
+                                    padding: '10px 22px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    backgroundColor: '#123f4d',
+                                    color: '#ffffff',
+                                    fontSize: '13px',
+                                    fontWeight: 700,
+                                    cursor: submittingReview ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {submittingReview ? '등록 중...' : '리뷰 등록 완료'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
         </div>
     );
 }

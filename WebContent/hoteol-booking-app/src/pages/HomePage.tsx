@@ -460,9 +460,14 @@ export function HomePage() {
                                                             >
                                                                 <Home size={16} /> 숙소 관리
                                                             </button>
-                                                            <button type="button"
-                                                                    onClick={() => handleDummyClick("리뷰 관리")}
-                                                                    style={dropdownItemStyle}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setIsDropdownOpen(false);
+                                                                    navigate('/host/reviews');
+                                                                }}
+                                                                style={dropdownItemStyle}
+                                                            >
                                                                 <MessageSquare size={16} /> 리뷰 관리
                                                             </button>
                                                         </>

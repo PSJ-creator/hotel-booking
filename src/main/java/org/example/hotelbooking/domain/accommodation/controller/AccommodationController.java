@@ -60,15 +60,22 @@ public class AccommodationController {
         return ResponseEntity.ok(hasApproved);
     }
 
-    // 💡 1. 숙소 신규 등록 API
+    // 💡 1. 숙소 신규 등록 API ("/api/v1/accommodations" 및 "/api/v1/accommodations/register" 모두 허용)
     @PreAuthorize("hasRole('HOST')")
-    @PostMapping("/register")
-    public ResponseEntity<String> register(
+    @PostMapping({"", "/register"})
+    public ResponseEntity<?> register(
             @RequestBody AccommodationDto.RegisterRequest request,
             @AuthenticationPrincipal String email
     ) {
-        String contentId = accommodationService.register(email, request);
-        return ResponseEntity.ok(contentId);
+        if (email == null || "anonymousUser".equals(email)) {
+            return ResponseEntity.status(401).body(Map.of("message", "로그인이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요."));
+        }
+        try {
+            String contentId = accommodationService.register(email, request);
+            return ResponseEntity.ok(contentId);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "숙소 등록 실패: " + e.getMessage()));
+        }
     }
 
     // 💡 2. 호스트 내 숙소 상세 목록 조회 API (DB 전체 컬럼 반환)

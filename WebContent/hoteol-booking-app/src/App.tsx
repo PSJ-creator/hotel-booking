@@ -16,6 +16,7 @@ import {TourDetailPage} from "./pages/TourDetailPage.tsx";
 import {TourWishlistPage} from "./pages/TourWishlistPage.tsx";
 import {HostAccommodationPage} from "./pages/HostAccommodationPage.tsx";
 import {AdminAccommodationsPage} from "./pages/AdminAccommodationsPage.tsx";
+import {HostReviewsPage} from "./pages/HostReviewsPage.tsx";
 
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
                 <Route path="/tour-wishlist" element={<TourWishlistPage />} />
                 <Route path="/host/accommodation" element={<HostAccommodationPage />} />
                 <Route path="/admin/accommodations" element={<AdminAccommodationsPage />} />
+                <Route path="/host/reviews" element={<HostReviewsPage />} />
             </Routes>
         </BrowserRouter>
     );

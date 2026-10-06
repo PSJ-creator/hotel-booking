@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+<table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 12px;">
+    <tr>
+        <td align="center">
+            <!-- 메인 컨테이너 카드 -->
+            <table width="580" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+
+                <!-- 1. 상단 헤더 영역 -->
+                <tr>
+                    <td style="background-color: #123f4d; padding: 32px 40px; text-align: center;">
+                        <span style="display: inline-block; background-color: rgba(110, 231, 183, 0.18); color: #6ee7b7; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 20px; margin-bottom: 10px; letter-spacing: 0.5px;">
+                            RESERVATION CONFIRMED
+                        </span>
+                        <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">
+                            숙소 예약이 확정되었습니다
+                        </h1>
+                        <p style="color: #cbd5e1; margin: 8px 0 0 0; font-size: 13px;">
+                            제주 야호와 함께 즐거운 제주 여행을 준비해 보세요!
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- 2. 인사말 & 숙소 요약 배너 -->
+                <tr>
+                    <td style="padding: 32px 36px 20px 36px;">
+                        <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+                            안녕하세요, <strong style="color: #0f766e;" th:text="${guestName}">홍길동</strong>님!<br>
+                            신청하신 숙소 예약 및 결제가 정상적으로 완료되었습니다.
+                        </p>
+
+                        <!-- 숙소 대표 카드 -->
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px;">
+                            <tr>
+                                <td>
+                                    <span style="font-size: 11px; font-weight: 700; color: #0f766e; display: block; margin-bottom: 4px;">숙소 및 객실 정보</span>
+                                    <div style="font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 4px;" th:text="${stayTitle}">신라호텔 제주</div>
+                                    <div style="font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 8px;" th:text="${roomTitle}">디럭스 오션뷰 더블</div>
+                                    <div style="font-size: 12px; color: #64748b;" th:text="'📍 ' + ${stayAddr}">📍 제주특별자치도 서귀포시 중문관광로 72</div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- 3. 2x2 그리드 카드 영역 (예약 상세 스펙) -->
+                <tr>
+                    <td style="padding: 0 36px 24px 36px;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <!-- 1행: 예약번호 & 숙박박수 -->
+                            <tr>
+                                <td width="48%" valign="top" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
+                                    <span style="font-size: 11px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 6px;">예약 번호</span>
+                                    <strong style="font-size: 15px; color: #0f172a; font-family: monospace;" th:text="${reservationNo}">#20261006-0001</strong>
+                                </td>
+                                <td width="4%"></td>
+                                <td width="48%" valign="top" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
+                                    <span style="font-size: 11px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 6px;">숙박 기간 / 연락처</span>
+                                    <strong style="font-size: 14px; color: #0f766e;" th:text="${nights} + '박 (' + ${stayTel} + ')'">1박 (064-123-4567)</strong>
+                                </td>
+                            </tr>
+                            <tr><td colspan="3" height="12"></td></tr>
+
+                            <!-- 2행: 체크인 & 체크아웃 -->
+                            <tr>
+                                <td width="48%" valign="top" style="background-color: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 12px; padding: 16px;">
+                                    <span style="font-size: 11px; color: #0f766e; font-weight: 700; display: block; margin-bottom: 6px;">체크인 (입실)</span>
+                                    <strong style="font-size: 15px; color: #0f172a; display: block;" th:text="${checkInDate}">2026-10-06</strong>
+                                    <span style="font-size: 12px; color: #475569;" th:text="${checkinTime} + ' 부터'">15:00 부터</span>
+                                </td>
+                                <td width="4%"></td>
+                                <td width="48%" valign="top" style="background-color: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 12px; padding: 16px;">
+                                    <span style="font-size: 11px; color: #0f766e; font-weight: 700; display: block; margin-bottom: 6px;">체크아웃 (퇴실)</span>
+                                    <strong style="font-size: 15px; color: #0f172a; display: block;" th:text="${checkOutDate}">2026-10-07</strong>
+                                    <span style="font-size: 12px; color: #475569;" th:text="${checkoutTime} + ' 까지'">11:00 까지</span>
+                                </td>
+                            </tr>
+                            <tr><td colspan="3" height="12"></td></tr>
+
+                            <!-- 3행: 총 결제 금액 전체 폭 카드 -->
+                            <tr>
+                                <td colspan="3" style="background-color: #f8fafc; border: 1px dashed #0f766e; border-radius: 12px; padding: 18px 20px;">
+                                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                        <tr>
+                                            <td style="font-size: 13px; font-weight: 700; color: #334155;">총 결제 완료 금액</td>
+                                            <td align="right" style="font-size: 20px; font-weight: 800; color: #0f766e;" th:text="${totalPriceFormatted}">150,000원</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- 4. 하단 Localhost 바로가기 버튼 영역 -->
+                <tr>
+                    <td align="center" style="padding: 8px 36px 36px 36px;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td width="48%" align="center">
+                                    <a th:href="${myReservationsUrl}"
+                                       style="display: block; padding: 14px 0; background-color: #123f4d; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 10px;">
+                                        내 예약 내역 확인하기
+                                    </a>
+                                </td>
+                                <td width="4%"></td>
+                                <td width="48%" align="center">
+                                    <a th:href="${stayDetailUrl}"
+                                       style="display: block; padding: 14px 0; background-color: #f1f5f9; color: #123f4d; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 10px; border: 1px solid #cbd5e1;">
+                                        숙소 상세페이지 보기
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="color: #94a3b8; font-size: 12px; margin: 18px 0 0 0;">
+                            예약 취소 및 변경은 체크인 전까지 [내 예약 내역] 페이지에서 가능합니다.
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- 5. 푸터 영역 -->
+                <tr>
+                    <td style="background-color: #f8fafc; padding: 20px 40px; text-align: center; border-top: 1px solid #f1f5f9;">
+                        <p style="color: #94a3b8; font-size: 11px; margin: 0;">
+                            © 2026 JEJU YA-HO. All rights reserved.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

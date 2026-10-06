@@ -17,14 +17,17 @@ import {
     Heart,
     Calendar,
     Compass,
-    Maximize2
+    Maximize2,
+    Star,
+    CornerDownRight
 } from 'lucide-react';
 import { money, getLodgingTypeName } from '../data/stays';
 import { Footer } from '../components/Footer';
 import { KakaoStayMap } from "../components/KakaoMap.tsx";
-import { TourSliderSection } from "../components/TourSliderSection.tsx"; // 💡 공통 관광지 슬라이더 컴포넌트 재사용
+import { TourSliderSection } from "../components/TourSliderSection.tsx";
 import { toggleAccommodationLike } from "../api/stays.ts";
 import { fetchNearbyTours, type NearbyTourItem } from "../api/tours.ts";
+import { fetchStayReviews, type ReviewItem } from '../api/reviews';
 
 interface RoomDto {
     roomId: number;
@@ -85,8 +88,12 @@ export function StayDetailPage() {
     // 지도 크게 보기 팝업 모달 상태
     const [isMapPopupOpen, setIsMapPopupOpen] = useState(false);
 
-    // 💡 주변 20km 이내 관광지 목록 (최대 9개)
+    // 주변 20km 이내 관광지 목록 (최대 9개)
     const [nearbyTours, setNearbyTours] = useState<NearbyTourItem[]>([]);
+
+    // 💡 [수정 1] 리뷰 관련 Hook들을 반드시 early return(if loading) 위쪽에 선언!
+    const [reviews, setReviews] = useState<ReviewItem[]>([]);
+    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
     // 숙소 찜 상태 확인
     useEffect(() => {
@@ -154,9 +161,24 @@ export function StayDetailPage() {
             });
     }, [contentId]);
 
-    // 갤러리 또는 지도 팝업 활성화 시 배경 스크롤 방지
+    // 숙소 리뷰 목록 조회
     useEffect(() => {
-        if (isGalleryOpen || isMapPopupOpen) {
+        if (!contentId) return;
+        fetchStayReviews(contentId)
+            .then((data) => setReviews(data || []))
+            .catch(() => setReviews([]));
+    }, [contentId]);
+
+    // 평균 별점 계산
+    const averageRating = useMemo(() => {
+        if (reviews.length === 0) return '0.0';
+        const sum = reviews.reduce((acc, cur) => acc + (cur.rating || 0), 0);
+        return (sum / reviews.length).toFixed(1);
+    }, [reviews]);
+
+    // 갤러리, 지도 팝업, 리뷰 모달 활성화 시 배경 스크롤 방지
+    useEffect(() => {
+        if (isGalleryOpen || isMapPopupOpen || isReviewModalOpen) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'unset';
@@ -164,7 +186,7 @@ export function StayDetailPage() {
         return () => {
             document.body.style.overflow = 'unset';
         };
-    }, [isGalleryOpen, isMapPopupOpen]);
+    }, [isGalleryOpen, isMapPopupOpen, isReviewModalOpen]);
 
     const allGalleryImages = useMemo(() => {
         if (!stay) return [];
@@ -397,6 +419,7 @@ export function StayDetailPage() {
                         <MapPin size={17} /> {stay.addr} {stay.zipcode && `(${stay.zipcode})`}
                     </p>
 
+                    {/* 체크인 / 연락처 / 주차 회색 요약 바 */}
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -419,6 +442,125 @@ export function StayDetailPage() {
                             <Car size={16} color="#0f766e" />
                             <span>주차: {stay.parking || '주차 가능 여부 문의'}</span>
                         </div>
+                    </div>
+
+                    {/* 💡 [수정 2] 주차 div 바깥(숙소 헤더 섹션 맨 하단)으로 올바르게 배치된 리뷰 3개 미리보기 */}
+                    <div style={{ marginTop: '22px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Star size={18} fill="#f59e0b" color="#f59e0b" />
+                                <strong style={{ fontSize: '15px', color: '#0f172a' }}>
+                                    이용객 실제 리뷰 ({reviews.length}개)
+                                </strong>
+                                {reviews.length > 0 && (
+                                    <span style={{
+                                        fontSize: '13px',
+                                        fontWeight: 700,
+                                        color: '#0f766e',
+                                        backgroundColor: '#f0fdfa',
+                                        padding: '2px 8px',
+                                        borderRadius: '8px'
+                                    }}>
+                                        평점 ★ {averageRating}
+                                    </span>
+                                )}
+                            </div>
+
+                            {reviews.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsReviewModalOpen(true)}
+                                    style={{
+                                        background: '#f8fafc',
+                                        border: '1px solid #cbd5e1',
+                                        borderRadius: '20px',
+                                        padding: '6px 14px',
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        color: '#123f4d',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    전체 리뷰 보기 ({reviews.length})
+                                </button>
+                            )}
+                        </div>
+
+                        {reviews.length === 0 ? (
+                            <div style={{
+                                padding: '16px',
+                                backgroundColor: '#f8fafc',
+                                borderRadius: '10px',
+                                textAlign: 'center',
+                                fontSize: '13px',
+                                color: '#94a3b8'
+                            }}>
+                                아직 작성된 리뷰가 없습니다. 숙소 이용 후기를 남겨 첫 주인공이 되어보세요!
+                            </div>
+                        ) : (
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                                gap: '12px'
+                            }}>
+                                {reviews.slice(0, 3).map((rev) => (
+                                    <div
+                                        key={rev.reviewId}
+                                        onClick={() => setIsReviewModalOpen(true)}
+                                        style={{
+                                            padding: '14px 16px',
+                                            backgroundColor: '#f8fafc',
+                                            borderRadius: '12px',
+                                            border: '1px solid #e2e8f0',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'space-between',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <div>
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                marginBottom: '6px'
+                                            }}>
+                                                <strong style={{ fontSize: '13px', color: '#0f172a' }}>{rev.authorName}</strong>
+                                                <span style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 700 }}>
+                                                    {'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}
+                                                </span>
+                                            </div>
+                                            <p style={{
+                                                margin: 0,
+                                                fontSize: '13px',
+                                                color: '#334155',
+                                                lineHeight: 1.5,
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical',
+                                                overflow: 'hidden'
+                                            }}>
+                                                {rev.content}
+                                            </p>
+                                        </div>
+
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            fontSize: '11px',
+                                            color: '#94a3b8'
+                                        }}>
+                                            <span>{rev.roomTitle}</span>
+                                            {rev.hostReply && (
+                                                <span style={{ color: '#0f766e', fontWeight: 700 }}>사장님 답글 있음</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </section>
 
@@ -629,7 +771,7 @@ export function StayDetailPage() {
                     )}
                 </section>
 
-                {/* 💡 5. 판매자 정보 상단: 공통 TourSliderSection 컴포넌트 재사용 */}
+                {/* 5. 판매자 정보 상단: 공통 TourSliderSection 컴포넌트 재사용 */}
                 {nearbyTours.length > 0 && (
                     <section style={{
                         backgroundColor: '#ffffff',
@@ -731,6 +873,115 @@ export function StayDetailPage() {
             </main>
 
             <Footer />
+
+            {/* 전체 리뷰 보기 모달 */}
+            {isReviewModalOpen && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100vw',
+                        height: '100vh',
+                        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                        backdropFilter: 'blur(3px)',
+                        zIndex: 3000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px'
+                    }}
+                    onClick={() => setIsReviewModalOpen(false)}
+                >
+                    <div
+                        style={{
+                            width: '100%',
+                            maxWidth: '720px',
+                            maxHeight: '85vh',
+                            backgroundColor: '#ffffff',
+                            borderRadius: '20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+                                    {stay.title} 전체 리뷰 ({reviews.length})
+                                </h3>
+                                <span style={{ fontSize: '13px', color: '#0f766e', fontWeight: 700 }}>
+                                    평균 별점 ★ {averageRating} / 5.0
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsReviewModalOpen(false)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                            >
+                                <X size={22} />
+                            </button>
+                        </div>
+
+                        <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {reviews.map((rev) => (
+                                <div
+                                    key={rev.reviewId}
+                                    style={{
+                                        padding: '18px',
+                                        borderRadius: '14px',
+                                        border: '1px solid #e2e8f0',
+                                        backgroundColor: '#ffffff'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <div>
+                                            <strong style={{ fontSize: '14px', color: '#0f172a', marginRight: '8px' }}>{rev.authorName}</strong>
+                                            <span style={{ fontSize: '12px', color: '#64748b' }}>· {rev.roomTitle}</span>
+                                        </div>
+                                        <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                                            {rev.createdAt ? rev.createdAt.split('T')[0] : ''}
+                                        </span>
+                                    </div>
+
+                                    <div style={{ color: '#f59e0b', fontSize: '14px', marginBottom: '8px' }}>
+                                        {'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}
+                                    </div>
+
+                                    <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                                        {rev.content}
+                                    </p>
+
+                                    {/* 숙소 관리자 답글 표시 */}
+                                    {rev.hostReply && (
+                                        <div style={{
+                                            marginTop: '14px',
+                                            padding: '14px 16px',
+                                            backgroundColor: '#f0fdfa',
+                                            borderRadius: '10px',
+                                            border: '1px solid #ccfbf1'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', fontSize: '12px', fontWeight: 700, color: '#0f766e' }}>
+                                                <CornerDownRight size={14} /> {stay.title}
+                                                {rev.repliedAt && (
+                                                    <span style={{ fontWeight: 400, color: '#64748b', marginLeft: '4px' }}>
+                                                        ({rev.repliedAt.split('T')[0]})
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p style={{ margin: 0, fontSize: '13px', color: '#1e293b', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+                                                {rev.hostReply}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* 7. 지도 크게 보기 팝업 모달 */}
             {isMapPopupOpen && stay.mapX && stay.mapY && (
