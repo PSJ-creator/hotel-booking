@@ -11,7 +11,6 @@ import {
     LogOut,
     Home,
     MessageSquare,
-    ShieldAlert,
     FileCheck,
     PlusCircle,
     Users
@@ -84,11 +83,6 @@ export function HomeNavbar({ isLoggedIn, onLogout, onOpenTourMap }: HomeNavbarPr
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
-    const handleDummyClick = (menuName: string) => {
-        alert(`[${menuName}] 기능은 준비 중입니다.`);
-        setIsDropdownOpen(false);
-    };
 
     const handleLogoutClick = () => {
         setIsDropdownOpen(false);
