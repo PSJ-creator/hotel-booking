@@ -52,15 +52,30 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           script: |
-            # 1. 기존 실행 중인 자바 프로세스 종료
-            CURRENT_PID=$(pgrep -f java || true)
+            cd /home/ubuntu/app
+
+            # 1. 8080 포트를 점유 중인 프로세스만 정확히 찾아서 종료 (자기 자신 종료 방지)
+            CURRENT_PID=$(lsof -ti:8080 || true)
             if [ -n "$CURRENT_PID" ]; then
-              echo "기존 프로세스 종료: $CURRENT_PID"
-              kill -15 $CURRENT_PID
+              echo "기존 애플리케이션 종료 (PID: $CURRENT_PID)"
+              kill -15 $CURRENT_PID || true
               sleep 5
             fi
 
-            # 2. 새 JAR 실행 (백그라운드 nohup)
-            cd /home/ubuntu/app
-            nohup java -jar *.jar > app.log 2>&1 &
+            # 혹시 종료되지 않고 남아있다면 강제 종료
+            REMAINING_PID=$(lsof -ti:8080 || true)
+            if [ -n "$REMAINING_PID" ]; then
+              echo "강제 종료 진행 (PID: $REMAINING_PID)"
+              kill -9 $REMAINING_PID || true
+              sleep 2
+            fi
+
+            # 2. 가장 최근에 생성된 단일 JAR 파일 이름 가져오기
+            JAR_NAME=$(ls -t *.jar | grep -v 'plain' | head -n 1)
+            echo "실행할 JAR: $JAR_NAME"
+
+            # 3. 새 JAR 백그라운드 실행 (disown으로 세션 완전 분리)
+            nohup java -jar "$JAR_NAME" > app.log 2>&1 &
+            sleep 3
+
             echo "애플리케이션 배포 및 실행 완료"
