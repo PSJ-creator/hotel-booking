@@ -1,0 +1,4924 @@
+==> src/main/java/org/example/hotelbooking/config/RedissonConfig.java <==
+package org.example.hotelbooking.config;
+
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class RedissonConfig {
+
+    private static final String REDIS_URL = "redis://127.0.0.1:6379";
+
+    @Bean
+    public RedissonClient redissonClient() {
+        Config config = new Config();
+        // 도커로 띄운 로컬 Redis 주소로 연결
+        config.useSingleServer().setAddress(REDIS_URL);
+
+        return Redisson.create(config);
+    }
+}
+==> src/main/java/org/example/hotelbooking/HotelBookingApplication.java <==
+package org.example.hotelbooking;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync; // 💡 추가
+
+@EnableAsync // 💡 이메일 비동기 발송 활성화
+@SpringBootApplication
+public class HotelBookingApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(HotelBookingApplication.class, args);
+    }
+
+}
+==> src/main/java/org/example/hotelbooking/domain/like/repository/AccomLikeRepository.java <==
+package org.example.hotelbooking.domain.like.repository;
+
+import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
+import org.example.hotelbooking.domain.like.entity.AccomLike;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+public interface AccomLikeRepository extends JpaRepository<AccomLike, Long> {
+    boolean existsByMember_MemberIdAndAccommodation_ContentId(Long memberId, String contentId);
+
+    Optional<AccomLike> findByMember_MemberIdAndAccommodation_ContentId(Long memberId, String contentId);
+
+    List<AccomLike> findByMember_MemberIdOrderByCreatedAtDesc(Long memberId);
+
+    // 💡 날짜가 있으면 재고가 있는 찜 숙소만 필터링, 날짜가 없으면(CAST IS NULL) 전체 찜 숙소 반환
+    @Query("SELECT new org.example.hotelbooking.domain.accommodation.dto.StayResponseDto(" +
+            "a.contentId, a.host.memberId, a.title, a.lodgingType, a.tel, a.zipcode, a.addr, " +
+            "a.checkinTime, a.checkoutTime, a.roomCount, a.roomType, a.parking, a.subFacility, " +
+            "a.overview, a.firstImage, a.firstImage2, a.mapX, a.mapY, " +
+            "COALESCE((SELECT MIN(r.pricePerNight) FROM Room r WHERE r.accommodation = a), 0), " +
+            "COALESCE((SELECT SUM(ri.availableCount) FROM RoomInventory ri JOIN ri.room r " +
+            "          WHERE r.accommodation = a " +
+            "            AND ri.inventoryDate = :checkIn " +
+            "            AND (:guests IS NULL OR :guests <= 0 OR CAST(COALESCE(r.roomMaxCount, '0') AS integer) >= :guests)), 0L)) " +
+            "FROM AccomLike al " +
+            "JOIN al.accommodation a " +
+            "WHERE al.member.memberId = :memberId " +
+            // 💡 1. 인원 조건
+            "  AND (:guests IS NULL OR :guests <= 0 OR EXISTS (" +
+            "       SELECT 1 FROM Room r " +
+            "       WHERE r.accommodation = a " +
+            "         AND CAST(COALESCE(r.roomMaxCount, '0') AS integer) >= :guests)) " +
+            // 💡 2. 날짜 조건 (:stayDays = 0L 이면 전체 찜 숙소 그대로 반환!)
+            "  AND (:stayDays = 0L OR EXISTS (" +
+            "       SELECT 1 FROM Room r " +
+            "       WHERE r.accommodation = a " +
+            "         AND (:guests IS NULL OR :guests <= 0 OR CAST(COALESCE(r.roomMaxCount, '0') AS integer) >= :guests) " +
+            "         AND (SELECT COUNT(ri) FROM RoomInventory ri " +
+            "              WHERE ri.room = r " +
+            "                AND ri.inventoryDate >= :checkIn " +
+            "                AND ri.inventoryDate < :checkOut " +
+            "                AND ri.availableCount > 0) = :stayDays)) " +
+            "ORDER BY al.createdAt DESC")
+    List<StayResponseDto> findWishlistStaysByMemberIdAndDates(
+            @Param("memberId") Long memberId,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut,
+            @Param("stayDays") Long stayDays,
+            @Param("guests") Integer guests
+    );
+
+    // 💡 숙소 삭제 시 해당 숙소를 찜한 내역 일괄 삭제
+    void deleteByAccommodation_ContentId(String contentId);
+}
+==> src/main/java/org/example/hotelbooking/domain/like/entity/AccomLike.java <==
+package org.example.hotelbooking.domain.like.entity;
+
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.member.entity.Member;
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "ACCOM_LIKE")
+public class AccomLike {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "LIKE_ID")
+    private Long likeId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "MEMBER_ID", nullable = false)
+    private Member member;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "CONTENT_ID", nullable = false)
+    private Accommodation accommodation;
+
+    @Column(name = "CREATED_AT", updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+    @Builder
+    public AccomLike(Member member, Accommodation accommodation) {
+        this.member = member;
+        this.accommodation = accommodation;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/like/controller/AccomLikeController.java <==
+package org.example.hotelbooking.domain.like.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
+import org.example.hotelbooking.domain.like.service.AccomLikeService;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/likes/accommodations")
+@RequiredArgsConstructor
+public class AccomLikeController {
+
+    private final AccomLikeService accomLikeService;
+
+    // 1. 찜 토글
+    @PostMapping("/{contentId}")
+    public ResponseEntity<Map<String, Object>> toggleLike(
+            @PathVariable String contentId,
+            @AuthenticationPrincipal String email
+    ) {
+        boolean liked = accomLikeService.toggleLike(email, contentId);
+        return ResponseEntity.ok(Map.of(
+                "liked", liked,
+                "message", liked ? "위시리스트에 저장되었습니다." : "위시리스트에서 제외되었습니다."
+        ));
+    }
+
+    // 2. 내 위시리스트 조회 (날짜 및 인원 조건 반영)
+    @GetMapping("/my")
+    public ResponseEntity<List<StayResponseDto>> getMyWishlist(
+            @AuthenticationPrincipal String email,
+            @RequestParam(value = "checkIn", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkIn,
+            @RequestParam(value = "checkOut", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkOut,
+            @RequestParam(value = "guests", required = false) Integer guests
+    ) {
+        return ResponseEntity.ok(accomLikeService.getMyWishlist(email, checkIn, checkOut, guests));
+    }
+
+    // 3. 특정 숙소 찜 여부 단건 확인
+    @GetMapping("/{contentId}/status")
+    public ResponseEntity<Boolean> getLikeStatus(
+            @PathVariable String contentId,
+            @AuthenticationPrincipal String email
+    ) {
+        return ResponseEntity.ok(accomLikeService.isLiked(email, contentId));
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/like/service/AccomLikeService.java <==
+package org.example.hotelbooking.domain.like.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
+import org.example.hotelbooking.domain.like.entity.AccomLike;
+import org.example.hotelbooking.domain.like.repository.AccomLikeRepository;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class AccomLikeService {
+
+    private final AccomLikeRepository accomLikeRepository;
+    private final MemberRepository memberRepository;
+    private final AccommodationRepository accommodationRepository;
+
+    public boolean isLiked(String email, String contentId) {
+        if (email == null || contentId == null) {
+            return false;
+        }
+
+        Member member = memberRepository.findByEmail(email).orElse(null);
+        if (member == null) {
+            return false;
+        }
+
+        return accomLikeRepository.existsByMember_MemberIdAndAccommodation_ContentId(member.getMemberId(), contentId);
+    }
+
+    // 찜 토글 로직
+    @Transactional
+    public boolean toggleLike(String email, String contentId) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Accommodation accommodation = accommodationRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("숙소를 찾을 수 없습니다."));
+
+        Optional<AccomLike> existingLike = accomLikeRepository
+                .findByMember_MemberIdAndAccommodation_ContentId(member.getMemberId(), contentId);
+
+        if (existingLike.isPresent()) {
+            accomLikeRepository.delete(existingLike.get());
+            return false; // 찜 해제
+        } else {
+            AccomLike newLike = AccomLike.builder()
+                    .member(member)
+                    .accommodation(accommodation)
+                    .build();
+            accomLikeRepository.save(newLike);
+            return true; // 찜 등록
+        }
+    }
+
+    public List<StayResponseDto> getMyWishlist(String email, LocalDate checkIn, LocalDate checkOut, Integer guests) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Long stayDays = 0L;
+        if (checkIn != null && checkOut != null && checkOut.isAfter(checkIn)) {
+            stayDays = java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut);
+        } else {
+            checkIn = LocalDate.now();
+            checkOut = LocalDate.now();
+        }
+
+        return accomLikeRepository.findWishlistStaysByMemberIdAndDates(member.getMemberId(), checkIn, checkOut, stayDays, guests);
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/room/dto/RoomManageDto.java <==
+package org.example.hotelbooking.domain.room.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.example.hotelbooking.domain.room.entity.Room;
+
+import java.util.List;
+
+public class RoomManageDto {
+
+    @Getter
+    @NoArgsConstructor
+    public static class SaveRequest {
+        private String roomTitle;
+        private String roomSize;
+        private String roomBaseCount;
+        private String roomMaxCount;
+        private Integer pricePerNight;
+        private Integer initialStock; // 신규 등록 시 일일 기본 재고 수 (기본 5실)
+        private List<String> imageUrls;
+    }
+
+    @Getter
+    @Builder
+    public static class Response {
+        private Long roomId;
+        private String roomTitle;
+        private String roomSize;
+        private String roomBaseCount;
+        private String roomMaxCount;
+        private Integer pricePerNight;
+        private List<String> imageUrls;
+
+        public static Response of(Room room, List<String> imageUrls) {
+            return Response.builder()
+                    .roomId(room.getRoomId())
+                    .roomTitle(room.getRoomTitle())
+                    .roomSize(room.getRoomSize())
+                    .roomBaseCount(room.getRoomBaseCount())
+                    .roomMaxCount(room.getRoomMaxCount())
+                    .pricePerNight(room.getPricePerNight())
+                    .imageUrls(imageUrls)
+                    .build();
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/room/dto/AvailableRoomResponse.java <==
+package org.example.hotelbooking.domain.room.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+
+@Getter
+@Builder
+public class AvailableRoomResponse {
+    private Long roomId;
+    private String roomName;      // 예: "디럭스 오션뷰"
+    private Integer price;        // 예: 150000
+    private Integer availableCount; // 남은 방 개수
+
+    // 💡 Entity -> DTO 변환 메서드
+    public static AvailableRoomResponse from(org.example.hotelbooking.domain.room.entity.RoomInventory inventory) {
+        return AvailableRoomResponse.builder()
+                .roomId(inventory.getRoom().getRoomId()) // ⚠️️ Room 엔티티의 ID 필드명에 맞게 수정
+                .roomName(inventory.getRoom().getRoomTitle()) // ⚠️ Room 엔티티의 방이름 필드명에 맞게 수정
+                .price(inventory.getRoom().getPricePerNight()) // ⚠️ Room 엔티티의 가격 필드명에 맞게 수정
+                .availableCount(inventory.getAvailableCount())
+                .build();
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/room/repository/RoomRepository.java <==
+package org.example.hotelbooking.domain.room.repository;
+
+import org.example.hotelbooking.domain.room.entity.Room;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+
+public interface RoomRepository extends JpaRepository<Room, Long> {
+    // 💡 특정 숙소(Accommodation)에 속한 모든 객실 리스트를 가져오는 메서드
+    List<Room> findByAccommodation_ContentId(String contentId);
+}
+==> src/main/java/org/example/hotelbooking/domain/room/repository/RoomInventoryRepository.java <==
+package org.example.hotelbooking.domain.room.repository;
+
+import org.example.hotelbooking.domain.room.entity.RoomInventory;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDate;
+import java.util.List;
+
+public interface RoomInventoryRepository extends JpaRepository<RoomInventory, Long> {
+
+    // 특정 객실의 특정 날짜 구간 재고 조회
+    @Query("SELECT ri FROM RoomInventory ri WHERE ri.room.roomId = :roomId AND ri.inventoryDate BETWEEN :checkIn AND :checkOut")
+    List<RoomInventory> findInventoriesForReservation(
+            @Param("roomId") Long roomId,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut
+    );
+    // 💡 Fetch Join을 사용해 RoomInventory를 가져올 때 Room 정보도 한 번에(N+1 방지) 긁어옵니다.
+    @Query("SELECT ri FROM RoomInventory ri JOIN FETCH ri.room r " +
+            "WHERE r.accommodation.contentId = :contentId " + // ⚠️ Room 엔티티 안의 Accommodation 필드명에 맞게 수정!
+            "AND ri.inventoryDate = :date " +
+            "AND ri.availableCount > 0")
+    List<RoomInventory> findAvailableRooms(
+            @Param("contentId") Long contentId,
+            @Param("date") LocalDate date
+    );
+
+    // 특정 숙소(String contentId)의 체크인 ~ 체크아웃 구간 객실별 재고 조회
+    @Query("SELECT ri FROM RoomInventory ri " +
+            "WHERE ri.room.accommodation.contentId = :contentId " +
+            "  AND ri.inventoryDate >= :checkIn " +
+            "  AND ri.inventoryDate < :checkOut")
+    List<RoomInventory> findByContentIdAndDateRange(
+            @Param("contentId") String contentId,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut
+    );
+
+    // 💡 객실 삭제 시 재고 데이터 정리용 (RoomInventoryRepository 내부에 추가)
+    void deleteByRoom_RoomId(Long roomId);
+}
+==> src/main/java/org/example/hotelbooking/domain/room/repository/RoomImageRepository.java <==
+package org.example.hotelbooking.domain.room.repository;
+
+import org.example.hotelbooking.domain.room.entity.RoomImage;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+
+public interface RoomImageRepository extends JpaRepository<RoomImage, Long> {
+    List<RoomImage> findByRoom_RoomIdOrderByDisplayOrderAsc(Long roomId);
+
+    // 💡 객실 수정/삭제 시 기존 이미지 정리용
+    void deleteByRoom_RoomId(Long roomId);
+}
+==> src/main/java/org/example/hotelbooking/domain/room/entity/Room.java <==
+package org.example.hotelbooking.domain.room.entity;
+
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "ROOM")
+public class Room {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ROOM_ID")
+    private Long roomId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "CONTENT_ID", nullable = false)
+    private Accommodation accommodation;
+
+    @Column(name = "ROOM_TITLE", length = 100)
+    private String roomTitle;
+
+    @Column(name = "ROOM_SIZE", length = 50)
+    private String roomSize;
+
+    @Column(name = "ROOM_BASE_COUNT", length = 20)
+    private String roomBaseCount;
+
+    @Column(name = "ROOM_MAX_COUNT", length = 20)
+    private String roomMaxCount;
+
+    @Column(name = "PRICE_PER_NIGHT")
+    private Integer pricePerNight;
+
+    // 💡 Room.builder() 사용을 위한 빌더 생성자
+    @Builder
+    public Room(Accommodation accommodation, String roomTitle, String roomSize,
+                String roomBaseCount, String roomMaxCount, Integer pricePerNight) {
+        this.accommodation = accommodation;
+        this.roomTitle = roomTitle;
+        this.roomSize = roomSize;
+        this.roomBaseCount = roomBaseCount;
+        this.roomMaxCount = roomMaxCount;
+        this.pricePerNight = pricePerNight;
+    }
+
+    // 💡 객실 정보 및 1박 가격 수정 메서드
+    public void updateRoom(String roomTitle, String roomSize, String roomBaseCount,
+                           String roomMaxCount, Integer pricePerNight) {
+        this.roomTitle = roomTitle;
+        this.roomSize = roomSize;
+        this.roomBaseCount = roomBaseCount;
+        this.roomMaxCount = roomMaxCount;
+        this.pricePerNight = pricePerNight;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/room/entity/RoomImage.java <==
+package org.example.hotelbooking.domain.room.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "ROOM_IMAGE")
+public class RoomImage {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "IMAGE_ID")
+    private Long imageId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ROOM_ID", nullable = false)
+    private Room room;
+
+    @Column(name = "IMAGE_URL", nullable = false, length = 1000)
+    private String imageUrl;
+
+    @Column(name = "DISPLAY_ORDER")
+    private Integer displayOrder;
+
+    @Builder
+    public RoomImage(Room room, String imageUrl, Integer displayOrder) {
+        this.room = room;
+        this.imageUrl = imageUrl;
+        this.displayOrder = displayOrder;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/room/entity/RoomInventory.java <==
+package org.example.hotelbooking.domain.room.entity;
+
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "ROOM_INVENTORY")
+public class RoomInventory {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "INVENTORY_ID")
+    private Long inventoryId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ROOM_ID", nullable = false)
+    private Room room;
+
+    @Column(name = "INVENTORY_DATE", nullable = false)
+    private LocalDate inventoryDate; // 예: 2026-10-01
+
+    @Column(name = "AVAILABLE_COUNT", nullable = false)
+    private Integer availableCount; // 남은 객실 수
+
+    @Builder
+    public RoomInventory(Room room, LocalDate inventoryDate, Integer availableCount) {
+        this.room = room;
+        this.inventoryDate = inventoryDate;
+        this.availableCount = availableCount;
+    }
+
+    // 💡 동시성 환경에서 호출될 재고 차감 로직
+    public void decreaseCount(int count) {
+        if (this.availableCount - count < 0) {
+            throw new IllegalArgumentException("해당 날짜의 객실이 모두 예약되었습니다.");
+        }
+        this.availableCount -= count;
+    }
+    // 💡 예약 취소 시 재고 복구 로직
+    public void increaseCount(int count) {
+        this.availableCount += count;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/room/controller/RoomController.java <==
+package org.example.hotelbooking.domain.room.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.room.dto.AvailableRoomResponse;
+import org.example.hotelbooking.domain.room.dto.RoomManageDto;
+import org.example.hotelbooking.domain.room.service.RoomService;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/accommodations")
+@RequiredArgsConstructor
+public class RoomController {
+
+    private final RoomService roomService;
+
+    @GetMapping("/{contentId}/rooms/available")
+    public ResponseEntity<List<AvailableRoomResponse>> getAvailableRooms(
+            @PathVariable Long contentId,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date) {
+
+        List<AvailableRoomResponse> response = roomService.getAvailableRooms(contentId, date);
+        return ResponseEntity.ok(response);
+    }
+
+    // 💡 1. 특정 숙소의 객실 목록 조회
+    @GetMapping("/{contentId}/rooms")
+    public ResponseEntity<List<RoomManageDto.Response>> getRoomsByAccommodation(
+            @PathVariable String contentId
+    ) {
+        return ResponseEntity.ok(roomService.getRoomsByAccommodation(contentId));
+    }
+
+    // 💡 2. 새 객실 추가 (HOST 전용)
+    @PreAuthorize("hasRole('HOST')")
+    @PostMapping("/{contentId}/rooms")
+    public ResponseEntity<Long> createRoom(
+            @PathVariable String contentId,
+            @RequestBody RoomManageDto.SaveRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        Long roomId = roomService.createRoom(email, contentId, request);
+        return ResponseEntity.ok(roomId);
+    }
+
+    // 💡 3. 객실 정보 및 가격 수정 (HOST 전용)
+    @PreAuthorize("hasRole('HOST')")
+    @PutMapping("/rooms/{roomId}")
+    public ResponseEntity<String> updateRoom(
+            @PathVariable Long roomId,
+            @RequestBody RoomManageDto.SaveRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        roomService.updateRoom(email, roomId, request);
+        return ResponseEntity.ok("객실 정보가 수정되었습니다.");
+    }
+
+    // 💡 4. 객실 삭제 (HOST 전용)
+    @PreAuthorize("hasRole('HOST')")
+    @DeleteMapping("/rooms/{roomId}")
+    public ResponseEntity<String> deleteRoom(
+            @PathVariable Long roomId,
+            @AuthenticationPrincipal String email
+    ) {
+        roomService.deleteRoom(email, roomId);
+        return ResponseEntity.ok("객실이 삭제되었습니다.");
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/room/service/RoomService.java <==
+package org.example.hotelbooking.domain.room.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
+import org.example.hotelbooking.domain.room.dto.AvailableRoomResponse;
+import org.example.hotelbooking.domain.room.dto.RoomManageDto;
+import org.example.hotelbooking.domain.room.entity.Room;
+import org.example.hotelbooking.domain.room.entity.RoomImage;
+import org.example.hotelbooking.domain.room.entity.RoomInventory;
+import org.example.hotelbooking.domain.room.repository.RoomImageRepository;
+import org.example.hotelbooking.domain.room.repository.RoomInventoryRepository;
+import org.example.hotelbooking.domain.room.repository.RoomRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class RoomService {
+
+    private final RoomInventoryRepository roomInventoryRepository;
+    private final RoomRepository roomRepository;
+    private final RoomImageRepository roomImageRepository;
+    private final AccommodationRepository accommodationRepository;
+
+    public List<AvailableRoomResponse> getAvailableRooms(Long contentId, LocalDate date) {
+        return roomInventoryRepository.findAvailableRooms(contentId, date)
+                .stream()
+                .map(AvailableRoomResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    // 💡 1. 특정 숙소의 객실 목록 조회 (호스트 관리 화면용)
+    public List<RoomManageDto.Response> getRoomsByAccommodation(String contentId) {
+        List<Room> rooms = roomRepository.findByAccommodation_ContentId(contentId);
+        return rooms.stream().map(room -> {
+            List<String> urls = roomImageRepository
+                    .findByRoom_RoomIdOrderByDisplayOrderAsc(room.getRoomId())
+                    .stream()
+                    .map(RoomImage::getImageUrl)
+                    .toList();
+            return RoomManageDto.Response.of(room, urls);
+        }).toList();
+    }
+
+    // 💡 2. 호스트: 새 객실 추가 (ROOM + ROOM_IMAGE + 향후 90일 ROOM_INVENTORY 자동 생성)
+    @Transactional
+    public Long createRoom(String email, String contentId, RoomManageDto.SaveRequest request) {
+        Accommodation accom = validateHostOwnership(email, contentId);
+
+        Room room = Room.builder()
+                .accommodation(accom)
+                .roomTitle(request.getRoomTitle())
+                .roomSize(request.getRoomSize())
+                .roomBaseCount(request.getRoomBaseCount())
+                .roomMaxCount(request.getRoomMaxCount())
+                .pricePerNight(request.getPricePerNight())
+                .build();
+
+        Room savedRoom = roomRepository.save(room);
+
+        // 객실 이미지 저장
+        saveRoomImages(savedRoom, request.getImageUrls());
+
+        // 오늘부터 90일 치 기본 객실 재고(ROOM_INVENTORY) 자동 세팅
+        int stock = (request.getInitialStock() != null && request.getInitialStock() > 0)
+                ? request.getInitialStock()
+                : 5;
+        LocalDate today = LocalDate.now();
+        List<RoomInventory> inventories = new ArrayList<>();
+        for (int i = 0; i < 90; i++) {
+            inventories.add(RoomInventory.builder()
+                    .room(savedRoom)
+                    .inventoryDate(today.plusDays(i))
+                    .availableCount(stock)
+                    .build());
+        }
+        roomInventoryRepository.saveAll(inventories);
+
+        return savedRoom.getRoomId();
+    }
+
+    // 💡 3. 호스트: 기존 객실 정보 및 가격 수정
+    @Transactional
+    public void updateRoom(String email, Long roomId, RoomManageDto.SaveRequest request) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 객실입니다. id=" + roomId));
+
+        validateHostOwnership(email, room.getAccommodation().getContentId());
+
+        room.updateRoom(
+                request.getRoomTitle(),
+                request.getRoomSize(),
+                request.getRoomBaseCount(),
+                request.getRoomMaxCount(),
+                request.getPricePerNight()
+        );
+
+        // 이미지 목록이 전달된 경우 기존 이미지 교체
+        if (request.getImageUrls() != null) {
+            roomImageRepository.deleteByRoom_RoomId(roomId);
+            saveRoomImages(room, request.getImageUrls());
+        }
+    }
+
+    // 💡 4. 호스트: 객실 삭제
+    @Transactional
+    public void deleteRoom(String email, Long roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 객실입니다. id=" + roomId));
+
+        validateHostOwnership(email, room.getAccommodation().getContentId());
+
+        roomImageRepository.deleteByRoom_RoomId(roomId);
+        roomInventoryRepository.deleteByRoom_RoomId(roomId);
+        roomRepository.delete(room);
+    }
+
+    private Accommodation validateHostOwnership(String email, String contentId) {
+        Accommodation accom = accommodationRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 숙소입니다."));
+        if (accom.getHost() == null || !accom.getHost().getEmail().equals(email)) {
+            throw new IllegalArgumentException("본인 소유의 숙소 객실만 관리할 수 있습니다.");
+        }
+        return accom;
+    }
+
+    private void saveRoomImages(Room room, List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) return;
+        int order = 1;
+        for (String url : imageUrls) {
+            if (url != null && !url.isBlank()) {
+                roomImageRepository.save(RoomImage.builder()
+                        .room(room)
+                        .imageUrl(url.trim())
+                        .displayOrder(order++)
+                        .build());
+            }
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/notification/dto/NotificationDto.java <==
+package org.example.hotelbooking.domain.notification.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+
+import java.time.LocalDateTime;
+
+@Getter
+@Builder
+public class NotificationDto {
+    private String id;        // 고유 식별자 (예: "REJECT_21", "RES_10")
+    private String title;     // 알림 제목
+    private String message;   // 알림 내용 (반려 사유 등)
+    private String type;      // ACCOM_REJECT, RESERVATION_NEW, ACCOM_PENDING
+    private LocalDateTime createdAt;
+}
+==> src/main/java/org/example/hotelbooking/domain/notification/controller/NotificationController.java <==
+package org.example.hotelbooking.domain.notification.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.notification.dto.NotificationDto;
+import org.example.hotelbooking.domain.notification.service.NotificationQueryService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/notifications")
+@RequiredArgsConstructor
+public class NotificationController {
+
+    private final NotificationQueryService notificationQueryService;
+
+    @GetMapping
+    public ResponseEntity<List<NotificationDto>> getNotifications(@AuthenticationPrincipal String email) {
+        if (email == null) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(notificationQueryService.getNotifications(email));
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/notification/service/NotificationQueryService.java <==
+package org.example.hotelbooking.domain.notification.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus;
+import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.notification.dto.NotificationDto;
+import org.example.hotelbooking.domain.reservation.entity.Reservation;
+import org.example.hotelbooking.domain.reservation.repository.ReservationRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class NotificationQueryService {
+
+    private final MemberRepository memberRepository;
+    private final AccommodationRepository accommodationRepository;
+    private final ReservationRepository reservationRepository;
+
+    public List<NotificationDto> getNotifications(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        List<NotificationDto> list = new ArrayList<>();
+        String roleName = member.getRole().getRoleName();
+
+        // 1. 숙소 관리자 (ROLE_HOST) 알림
+        if ("ROLE_HOST".equals(roleName)) {
+            // [알림 1] 숙소 등록 반려 내역
+            List<Accommodation> rejectedList = accommodationRepository
+                    .findByHost_MemberIdAndApprovalStatus(member.getMemberId(), AccommodationStatus.REJECTED);
+
+            for (Accommodation a : rejectedList) {
+                String reason = a.getRejectReason() != null ? a.getRejectReason() : "사유가 입력되지 않았습니다.";
+                list.add(NotificationDto.builder()
+                        .id("REJECT_" + a.getContentId())
+                        .title("숙소 신청이 반려되었습니다.")
+                        .message("숙소: " + a.getTitle() + " / 반려 사유 : " + reason)
+                        .type("ACCOM_REJECT")
+                        .createdAt(a.getCreatedAt())
+                        .build());
+            }
+
+            // [알림 2] 숙소 예약 신청 알림 (추후 예약 신청 연동용)
+            List<Reservation> hostReservations = reservationRepository.findReservationsByHostId(member.getMemberId());
+            for (Reservation r : hostReservations) {
+                // 최근 예약 알림 (예시: COMPLETED/RESERVED 상태)
+                list.add(NotificationDto.builder()
+                        .id("RES_" + r.getReservationId())
+                        .title("새로운 숙소 예약이 접수되었습니다.")
+                        .message("예약자: " + r.getMember().getName() + " (" + r.getCheckInDate() + " ~ " + r.getCheckOutDate() + ")")
+                        .type("RESERVATION_NEW")
+                        .createdAt(r.getCreatedAt())
+                        .build());
+            }
+        }
+
+        // 2. 총괄 관리자 (ROLE_ADMIN) 알림
+        if ("ROLE_ADMIN".equals(roleName)) {
+            // [알림 3] 신규 등록되어 심사 대기 중인 숙소 알림
+            List<Accommodation> pendingList = accommodationRepository
+                    .findByApprovalStatusOrderByCreatedAtDesc(AccommodationStatus.PENDING);
+
+            for (Accommodation a : pendingList) {
+                list.add(NotificationDto.builder()
+                        .id("PENDING_" + a.getContentId())
+                        .title("신규 숙소 승인 요청이 있습니다.")
+                        .message("숙소명: " + a.getTitle() + " (호스트: " + a.getHost().getName() + ")")
+                        .type("ACCOM_PENDING")
+                        .createdAt(a.getCreatedAt())
+                        .build());
+            }
+        }
+
+        // 최신 등록 순 정렬
+        list.sort((o1, o2) -> {
+            if (o1.getCreatedAt() == null || o2.getCreatedAt() == null) return 0;
+            return o2.getCreatedAt().compareTo(o1.getCreatedAt());
+        });
+
+        return list;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/payment/dto/PaymentConfirmRequest.java <==
+package org.example.hotelbooking.domain.payment.dto;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import java.time.LocalDate;
+
+@Getter
+@NoArgsConstructor
+public class PaymentConfirmRequest {
+    private String paymentKey;
+    private String orderId;
+    private Integer amount;
+
+    // 예약에 필요한 부가 정보
+    private Long roomId;
+    private LocalDate checkInDate;
+    private LocalDate checkOutDate;
+}
+==> src/main/java/org/example/hotelbooking/domain/payment/controller/PaymentController.java <==
+package org.example.hotelbooking.domain.payment.controller;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.payment.dto.PaymentConfirmRequest;
+import org.example.hotelbooking.domain.payment.service.TossPaymentService;
+import org.example.hotelbooking.domain.reservation.facade.ReservationLockFacade;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import java.util.Map;
+
+@Slf4j
+@RestController
+@RequestMapping("/api/v1/payments")
+@RequiredArgsConstructor
+public class PaymentController {
+
+    private final TossPaymentService tossPaymentService;
+    private final ReservationLockFacade reservationLockFacade;
+    private final MemberRepository memberRepository;
+
+    @GetMapping("/client-key")
+    public ResponseEntity<Map<String, String>> getClientKey() {
+        return ResponseEntity.ok(Map.of("clientKey", tossPaymentService.getTossClientKey()));
+    }
+
+    @PostMapping("/confirm")
+    public ResponseEntity<String> confirmPayment(
+            @RequestBody PaymentConfirmRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
+
+        // 1. 토스페이먼츠 서버로 결제 승인(Confirm) 요청 (돈이 빠져나감)
+        tossPaymentService.confirmPayment(request.getPaymentKey(), request.getOrderId(), request.getAmount());
+
+        // 2. 결제가 승인되었으니, 우리 DB에 락을 걸고 객실 예약을 시도합니다.
+        try {
+            reservationLockFacade.reserveRoomWithLock(
+                    member.getMemberId(),
+                    request.getRoomId(),
+                    request.getCheckInDate(),
+                    request.getCheckOutDate(),
+                    request.getAmount()
+            );
+            return ResponseEntity.ok("결제 및 예약이 성공적으로 완료되었습니다.");
+
+        } catch (Exception e) {
+            // 🚨 3. 치명적 예외: 돈은 나갔는데, 그 찰나의 순간에 방이 매진되어 DB 에러가 터졌다면?
+            log.error("예약 DB 저장 실패! 유저의 돈을 즉시 환불합니다. 사유: {}", e.getMessage());
+
+            // 보상 트랜잭션: 토스 서버로 즉시 결제 취소 API를 쏴서 전액 환불 조치
+            tossPaymentService.cancelPayment(request.getPaymentKey(), "객실 매진으로 인한 자동 환불");
+
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("결제가 진행되었으나 찰나의 순간에 객실이 매진되었습니다. 안전하게 전액 환불되었습니다.");
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/payment/service/TossPaymentService.java <==
+package org.example.hotelbooking.domain.payment.service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestTemplate;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class TossPaymentService {
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @Value("${toss.secret.key}")
+    private String tossSecretKey;
+
+    @Value("${toss.client.key:}")
+    private String tossClientKey;
+
+    public String getTossClientKey() {
+        return tossClientKey;
+    }
+
+    // 1. 결제 최종 승인 API 호출
+    public void confirmPayment(String paymentKey, String orderId, Integer amount) {
+        String url = "https://api.tosspayments.com/v1/payments/confirm";
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("paymentKey", paymentKey);
+        params.put("orderId", orderId);
+        params.put("amount", amount);
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(params, getHeaders());
+
+        try {
+            restTemplate.postForEntity(url, request, String.class);
+            log.info("✅ 토스 결제 승인 완료 - OrderId: {}", orderId);
+
+        } catch (HttpStatusCodeException e) {
+            // 💡 추가된 부분: 토스 서버가 거절한 "진짜 이유(JSON)"를 콘솔에 출력합니다!
+            log.error("❌ 토스 결제 승인 거절됨: {}", e.getResponseBodyAsString());
+            throw new RuntimeException("결제 승인 거절: " + e.getResponseBodyAsString());
+
+        } catch (Exception e) {
+            log.error("❌ 토스 결제 승인 실패 (통신 오류): {}", e.getMessage());
+            throw new RuntimeException("결제 승인 중 통신 오류가 발생했습니다.");
+        }
+    }
+
+    // 2. 결제 취소(환불) API 호출 (보상 트랜잭션용)
+    public void cancelPayment(String paymentKey, String cancelReason) {
+        String url = "https://api.tosspayments.com/v1/payments/" + paymentKey + "/cancel";
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("cancelReason", cancelReason);
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(params, getHeaders());
+
+        try {
+            restTemplate.postForEntity(url, request, String.class);
+            log.info("🔄 토스 결제 자동 취소(환불) 완료 - PaymentKey: {}, 사유: {}", paymentKey, cancelReason);
+        } catch (Exception e) {
+            log.error("❌ 토스 결제 자동 취소 실패 - 수동 환불 필요: {}", e.getMessage());
+            // 실무에서는 여기에 슬랙 알림 등을 붙여서 관리자가 수동으로 환불하게 만듭니다.
+        }
+    }
+
+    // 토스페이먼츠 Basic Auth 헤더 생성 (시크릿키 뒤에 콜론(:)을 붙여서 Base64 인코딩)
+    private HttpHeaders getHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        String encodedAuth = Base64.getEncoder().encodeToString((tossSecretKey + ":").getBytes(StandardCharsets.UTF_8));
+        headers.setBasicAuth(encodedAuth);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/member/dto/AuthDto.java <==
+package org.example.hotelbooking.domain.member.dto;
+
+import lombok.Getter;
+
+public class AuthDto {
+
+    @Getter
+    public static class SignupRequest {
+        private String email;
+        private String password;
+        private String name;
+        private String businessNo; // 사업자번호 (일반 유저는 null)
+    }
+
+    @Getter
+    public static class LoginRequest {
+        private String email;
+        private String password;
+    }
+
+    @Getter
+    public static class TokenResponse {
+        private String token;
+
+        public TokenResponse(String token) {
+            this.token = token;
+        }
+    }
+
+    // 기존 유저 숙소관리자 신청을 위한 사업자번호 get 추가
+    @Getter
+    public static class HostApplyRequest {
+        private String businessNo;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/member/dto/MemberDto.java <==
+package org.example.hotelbooking.domain.member.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+public class MemberDto {
+
+    // 💡 내 정보 조회 응답 DTO
+    @Getter
+    @Builder
+    public static class Response {
+        private String email;
+        private String name;
+        private String role;
+        private String businessNo;
+        private boolean isSocial; // 카카오 계정 여부
+    }
+
+    // 💡 회원정보 수정 요청 DTO
+    @Getter
+    @NoArgsConstructor
+    public static class UpdateRequest {
+        private String name;
+        private String currentPassword;
+        private String newPassword;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/member/repository/MemberRepository.java <==
+package org.example.hotelbooking.domain.member.repository;
+
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
+
+public interface MemberRepository extends JpaRepository<Member, Long> {
+    // 💡 로그인 시 이메일로 회원 정보를 찾기 위한 메서드
+    Optional<Member> findByEmail(String email);
+
+    // 💡 회원가입 시 이메일 중복 체크를 위한 메서드
+    boolean existsByEmail(String email);
+}
+==> src/main/java/org/example/hotelbooking/domain/member/repository/RoleRepository.java <==
+package org.example.hotelbooking.domain.member.repository;
+
+import org.example.hotelbooking.domain.member.entity.Role;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
+
+public interface RoleRepository extends JpaRepository<Role, Long> {
+    // 💡 "ROLE_USER", "ROLE_HOST" 같은 이름으로 권한 정보를 찾는 메서드
+    Optional<Role> findByRoleName(String roleName);
+}
+==> src/main/java/org/example/hotelbooking/domain/member/entity/Member.java <==
+package org.example.hotelbooking.domain.member.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "MEMBER")
+public class Member {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "MEMBER_ID")
+    private Long memberId;
+
+    @Column(unique = true, nullable = false, length = 100)
+    private String email;
+
+    @Column(nullable = false, length = 255)
+    private String password;
+
+    @Column(nullable = false, length = 50)
+    private String name;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ROLE_ID")
+    private Role role;
+
+    @Column(name = "BUSINESS_NO", unique = true, length = 50)
+    private String businessNo;
+
+    // 💡 DB의 STATUS 컬럼 매핑 ('ACTIVE', 'BLOCKED', 'WITHDRAWN', 'BANNED')
+    @Column(name = "STATUS", length = 20)
+    private String status;
+
+    @Column(name = "CREATED_AT", updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @Builder
+    public Member(String email, String password, String name, Role role, String businessNo) {
+        this.email = email;
+        this.password = password;
+        this.name = name;
+        this.role = role;
+        this.businessNo = businessNo;
+    }
+
+    public void updateToHost(String businessNo, Role role) {
+        this.businessNo = businessNo;
+        this.role = role;
+    }
+    public void updatePassword(String newPassword){
+        this.password = newPassword;
+    }
+
+    public void updateInfo(String name) {
+        this.name = name;
+    }
+
+    public void downgradeToUser(Role userRole) {
+        this.role = userRole;
+        this.businessNo = null; // 사업자번호 초기화
+    }
+
+    // 💡 회원 탈퇴 처리 편의 메서드
+    // 1) status를 'WITHDRAWN'으로 변경
+    // 2) 동일 이메일 재가입이 가능하도록 email을 고유한 unknown 형태로 변경 (UNIQUE 충돌 방지)
+    // 3) 이름을 'Unknown'으로 변경 및 사업자번호 null 초기화
+    public void withdraw(Role userRole) {
+        this.status = "WITHDRAWN";
+        this.name = "Unknown";
+        this.email = "unknown_" + this.memberId + "_" + System.currentTimeMillis() + "@withdrawn.com";
+        this.businessNo = null;
+        if (userRole != null) {
+            this.role = userRole;
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/member/entity/Role.java <==
+package org.example.hotelbooking.domain.member.entity;
+
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "ROLES")
+public class Role {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ROLE_ID")
+    private Long roleId;
+
+    @Column(name = "ROLE_NAME", unique = true, nullable = false, length = 50)
+    private String roleName;
+
+    @Column(length = 100)
+    private String description;
+}
+==> src/main/java/org/example/hotelbooking/domain/member/controller/AuthController.java <==
+package org.example.hotelbooking.domain.member.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.member.dto.AuthDto;
+import org.example.hotelbooking.domain.member.service.AuthService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import org.example.hotelbooking.domain.member.service.KakaoAuthService;
+
+import java.net.URI;
+
+@RestController
+@RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+
+    // 기존 AuthController 클래스 안에 필드 주입 추가
+    private final KakaoAuthService kakaoAuthService;
+
+    // 일반 회원가입 API
+    @PostMapping("/signup")
+    public ResponseEntity<String> signup(@RequestBody AuthDto.SignupRequest request) {
+        authService.signup(request);
+        return ResponseEntity.ok("회원가입이 완료되었습니다.");
+    }
+
+    // 일반 로그인 API
+    @PostMapping("/login")
+    public ResponseEntity<AuthDto.TokenResponse> login(@RequestBody AuthDto.LoginRequest request) {
+        AuthDto.TokenResponse tokenResponse = authService.login(request);
+        return ResponseEntity.ok(tokenResponse);
+    }
+    // 카카오 로그인 시
+    // 카카오 로그인 간 json만 띄워서 기존 AuthController 내부의 kakaoCallback 메서드 교체
+    @GetMapping("/kakao/callback")
+    public ResponseEntity<Void> kakaoCallback(@RequestParam String code) {
+        // 1. 카카오 로그인 후 JWT 토큰 발급
+        String token = kakaoAuthService.kakaoLogin(code);
+
+        // 2. 리액트 프론트엔드로 토큰을 쿼리 스트링에 담아 리다이렉트
+        HttpHeaders headers = new HttpHeaders();
+        headers.setLocation(URI.create("http://localhost:5173/oauth/callback?token=" + token));
+
+        return new ResponseEntity<>(headers, HttpStatus.FOUND); // 302 리다이렉트
+    }
+
+    @PostMapping("/apply-host")
+    public ResponseEntity<AuthDto.TokenResponse> applyHost(
+            @RequestBody AuthDto.HostApplyRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String newToken = authService.upgradeToHost(email, request.getBusinessNo());
+        return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/member/controller/MemberController.java <==
+package org.example.hotelbooking.domain.member.controller; // 패키지 경로는 본인 프로젝트에 맞게 수정하세요.
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.member.dto.AuthDto;
+import org.example.hotelbooking.domain.member.dto.MemberDto;
+import org.example.hotelbooking.domain.member.service.MemberService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/members")
+@RequiredArgsConstructor
+public class MemberController {
+
+    private final MemberService memberService;
+
+    // 💡 1. 이메일 인증 코드 발송 API
+    @PostMapping("/password/code")
+    public ResponseEntity<String> sendResetCode(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+
+        memberService.sendPasswordResetCode(email);
+
+        return ResponseEntity.ok("이메일로 인증 코드가 발송되었습니다.");
+    }
+    // 💡 2. 인증 코드 검증 API (프론트엔드에서 코드 입력 후 확인 버튼 누를 때)
+    @PostMapping("/password/verify")
+    public ResponseEntity<String> verifyResetCode(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String code = request.get("code");
+
+        memberService.verifyResetCode(email, code);
+
+        return ResponseEntity.ok("이메일 인증이 완료되었습니다. 비밀번호 변경 화면으로 이동합니다.");
+    }
+
+    // 💡 3. 새 비밀번호 재설정 API (프론트엔드에서 새 비밀번호 입력 후 완료 버튼 누를 때)
+    @PostMapping("/password/reset")
+    public ResponseEntity<String> resetPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String newPassword = request.get("newPassword");
+
+        memberService.resetPassword(email, newPassword);
+
+        return ResponseEntity.ok("비밀번호가 성공적으로 변경되었습니다.");
+    }
+
+    // 💡 내 정보 조회
+    @GetMapping("/me")
+    public ResponseEntity<MemberDto.Response> getMyProfile(@AuthenticationPrincipal String email) {
+        return ResponseEntity.ok(memberService.getMyProfile(email));
+    }
+
+    // 💡 회원정보 수정
+    @PutMapping("/me")
+    public ResponseEntity<AuthDto.TokenResponse> updateProfile(
+            @AuthenticationPrincipal String email,
+            @RequestBody MemberDto.UpdateRequest request
+    ) {
+        String newToken = memberService.updateProfile(email, request);
+        return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
+    }
+
+    // 💡 숙소 관리자 탈퇴 (보유 숙소/예약 존재 시 400 에러와 사유 메시지 반환)
+    @PatchMapping("/me/downgrade-host")
+    public ResponseEntity<?> downgradeHost(@AuthenticationPrincipal String email) {
+        try {
+            String newToken = memberService.downgradeHost(email);
+            return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // 💡 회원 탈퇴 API
+    @DeleteMapping("/me")
+    public ResponseEntity<?> withdrawMember(@AuthenticationPrincipal String email) {
+        try {
+            memberService.withdrawMember(email);
+            return ResponseEntity.ok(Map.of("message", "회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다."));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/member/service/MailService.java <==
+package org.example.hotelbooking.domain.member.service;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+
+import java.io.UnsupportedEncodingException;
+import java.text.NumberFormat;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.Locale;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class MailService {
+
+    private final JavaMailSender javaMailSender;
+    private final TemplateEngine templateEngine; // 💡 Thymeleaf 템플릿 엔진 주입
+
+    @Value("${spring.mail.username}")
+    private String fromEmail;
+
+    public void sendAuthCode(String toEmail, String code) {
+        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+
+            helper.setFrom(fromEmail, "제주 야호");
+            helper.setTo(toEmail);
+            helper.setSubject("[제주 야호] 비밀번호 찾기 인증번호 안내");
+
+            // 💡 템플릿 변수 매핑 및 HTML 렌더링
+            Context context = new Context();
+            context.setVariable("code", code);
+            String htmlContent = templateEngine.process("mail/password-reset", context);
+
+            helper.setText(htmlContent, true);
+
+            javaMailSender.send(mimeMessage);
+            log.info("인증 메일 발송 완료 -> 수신자: {}", toEmail);
+
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            log.error("메일 발송 중 오류 발생: {}", e.getMessage(), e);
+            throw new RuntimeException("이메일 발송에 실패했습니다. 관리자에게 문의하세요.", e);
+        }
+    }
+
+    // 💡 2. [신규 추가] 숙소 예약 완료 안내 이메일 발송 (비동기 처리)
+    @Async
+    public void sendReservationConfirmation(
+            String toEmail,
+            String guestName,
+            Long reservationId,
+            String contentId,
+            String stayTitle,
+            String stayAddr,
+            String stayTel,
+            String checkinTime,
+            String checkoutTime,
+            String roomTitle,
+            LocalDate checkInDate,
+            LocalDate checkOutDate,
+            Integer totalPrice
+    ) {
+        // 카카오 가짜 이메일(@hotel.com)인 경우 실제 발송 생략
+        if (toEmail == null || (toEmail.startsWith("kakao_") && toEmail.endsWith("@hotel.com"))) {
+            log.info("소셜 로그인 가짜 이메일 계정이므로 예약 확인 메일 발송을 생략합니다: {}", toEmail);
+            return;
+        }
+
+        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+
+            helper.setFrom(fromEmail, "제주 야호");
+            helper.setTo(toEmail);
+            helper.setSubject("[제주 야호] '" + stayTitle + "' 숙소 예약이 확정되었습니다.");
+
+            long nights = Math.max(1, ChronoUnit.DAYS.between(checkInDate, checkOutDate));
+            String reservationNo = "#" + checkInDate.toString().replace("-", "") + "-" + String.format("%04d", reservationId);
+            String formattedPrice = NumberFormat.getNumberInstance(Locale.KOREA).format(totalPrice != null ? totalPrice : 0) + "원";
+
+            Context context = new Context();
+            context.setVariable("guestName", guestName);
+            context.setVariable("reservationNo", reservationNo);
+            context.setVariable("stayTitle", stayTitle);
+            context.setVariable("stayAddr", stayAddr != null ? stayAddr : "제주특별자치도");
+            context.setVariable("stayTel", stayTel != null ? stayTel : "숙소 문의");
+            context.setVariable("checkinTime", checkinTime != null ? checkinTime : "15:00");
+            context.setVariable("checkoutTime", checkoutTime != null ? checkoutTime : "11:00");
+            context.setVariable("roomTitle", roomTitle);
+            context.setVariable("checkInDate", checkInDate.toString());
+            context.setVariable("checkOutDate", checkOutDate.toString());
+            context.setVariable("nights", nights);
+            context.setVariable("totalPriceFormatted", formattedPrice);
+
+            // 💡 Localhost 프론트엔드 바로가기 링크 세팅
+            context.setVariable("myReservationsUrl", "http://localhost:5173/my-reservations");
+            context.setVariable("stayDetailUrl", "http://localhost:5173/stays/" + contentId);
+
+            String htmlContent = templateEngine.process("mail/reservation-confirm", context);
+            helper.setText(htmlContent, true);
+
+            javaMailSender.send(mimeMessage);
+            log.info("✅ 예약 확정 이메일 발송 완료 -> 수신자: {}, 예약번호: {}", toEmail, reservationNo);
+
+        } catch (Exception e) {
+            // 이메일 발송 실패가 예약 트랜잭션을 롤백시키지 않도록 로그만 기록
+            log.error("❌ 예약 확정 이메일 발송 실패 (수신자: {}): {}", toEmail, e.getMessage());
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/member/service/MemberService.java <==
+package org.example.hotelbooking.domain.member.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
+import org.example.hotelbooking.domain.member.dto.MemberDto;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.entity.Role;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.member.repository.RoleRepository;
+import org.example.hotelbooking.domain.reservation.entity.Reservation;
+import org.example.hotelbooking.domain.reservation.repository.ReservationRepository;
+import org.example.hotelbooking.global.security.JwtTokenProvider;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+@Service
+@RequiredArgsConstructor
+public class MemberService {
+
+    private final MemberRepository memberRepository;
+    private final RoleRepository roleRepository;
+    private final AccommodationRepository accommodationRepository;
+    private final ReservationRepository reservationRepository;
+    private final MailService mailService;
+    private final StringRedisTemplate redisTemplate;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    public void sendPasswordResetCode(String email) {
+        // 1. 이메일로 회원 정보 조회 (존재 여부 확인)
+        org.example.hotelbooking.domain.member.entity.Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
+
+        // 💡 2. 카카오 이메일 패턴으로 소셜 가입자 판별 및 차단
+        if (email.startsWith("kakao_") && email.endsWith("@hotel.com")) {
+            throw new IllegalArgumentException("카카오 소셜 로그인으로 가입된 계정입니다. 카카오 로그인을 이용해 주세요.");
+        }
+
+        // 3. 6자리 랜덤 인증 코드 생성 (100000 ~ 999999)
+        String code = String.valueOf((int) (Math.random() * 899999) + 100000);
+
+        // 4. Redis에 저장 (키: "PWD_RESET:이메일", 값: 코드, 만료시간: 3분)
+        String redisKey = "PWD_RESET:" + email;
+        redisTemplate.opsForValue().set(redisKey, code, 3, java.util.concurrent.TimeUnit.MINUTES);
+
+        // 5. 이메일 발송
+        mailService.sendAuthCode(email, code);
+    }
+    // 💡 2번 API: 인증 코드만 검증하고 합격 티켓 부여
+    public void verifyResetCode(String email, String inputCode) {
+        String redisKey = "PWD_RESET:" + email;
+        String savedCode = redisTemplate.opsForValue().get(redisKey);
+
+        if (savedCode == null || !savedCode.equals(inputCode)) {
+            throw new IllegalArgumentException("인증 코드가 일치하지 않거나 만료되었습니다.");
+        }
+
+        // 인증 성공 시, 기존 인증 코드는 삭제
+        redisTemplate.delete(redisKey);
+
+        // "이메일 인증 완료" 상태를 Redis에 10분간 저장 (합격 티켓)
+        redisTemplate.opsForValue().set("PWD_RESET_VERIFIED:" + email, "TRUE", 10, java.util.concurrent.TimeUnit.MINUTES);
+    }
+
+    // 💡 3번 API: 합격 티켓 확인 후 실제 비밀번호 변경
+    @org.springframework.transaction.annotation.Transactional
+    public void resetPassword(String email, String newPassword) {
+        String verifiedKey = "PWD_RESET_VERIFIED:" + email;
+        String isVerified = redisTemplate.opsForValue().get(verifiedKey);
+
+        // 1. 합격 티켓이 없으면 에러 (인증 안 하고 바로 변경 시도한 경우)
+        if (isVerified == null) {
+            throw new IllegalArgumentException("이메일 인증이 완료되지 않았거나 만료되었습니다. 다시 인증해 주세요.");
+        }
+
+        // 2. 회원 조회 및 비밀번호 변경
+        org.example.hotelbooking.domain.member.entity.Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
+
+        // 💡 실무 주의: Spring Security를 쓰고 계시다면 passwordEncoder.encode(newPassword)로 암호화해야 합니다!
+        member.updatePassword(passwordEncoder.encode(newPassword));
+
+        // 3. 비밀번호 변경이 끝났으므로 합격 티켓 삭제 (재사용 방지)
+        redisTemplate.delete(verifiedKey);
+    }
+
+    // 💡 1. 내 정보 조회
+    @Transactional(readOnly = true)
+    public MemberDto.Response getMyProfile(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        boolean isSocial = email.startsWith("kakao_") && email.endsWith("@hotel.com");
+
+        return MemberDto.Response.builder()
+                .email(member.getEmail())
+                .name(member.getName())
+                .role(member.getRole().getRoleName())
+                .businessNo(member.getBusinessNo())
+                .isSocial(isSocial)
+                .build();
+    }
+
+    // 💡 2. 회원정보 수정 (이름, 비밀번호)
+    @Transactional
+    public String updateProfile(String email, MemberDto.UpdateRequest request) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        // 이름 변경
+        if (request.getName() != null && !request.getName().isBlank()) {
+            member.updateInfo(request.getName().trim());
+        }
+
+        // 비밀번호 변경 (입력된 경우에만 검증 후 변경)
+        if (request.getNewPassword() != null && !request.getNewPassword().isBlank()) {
+            boolean isSocial = email.startsWith("kakao_") && email.endsWith("@hotel.com");
+            if (isSocial) {
+                throw new IllegalArgumentException("소셜 로그인 회원은 비밀번호를 변경할 수 없습니다.");
+            }
+
+            if (request.getCurrentPassword() == null || !passwordEncoder.matches(request.getCurrentPassword(), member.getPassword())) {
+                throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+            }
+
+            member.updatePassword(passwordEncoder.encode(request.getNewPassword()));
+        }
+
+        // 변경된 닉네임이 반영된 새 JWT 토큰 발급
+        return jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
+    }
+
+    // 💡 3. 숙소 관리자 탈퇴 (보유 숙소 또는 진행 예정 예약이 있으면 차단!)
+    @Transactional
+    public String downgradeHost(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        if (!"ROLE_HOST".equals(member.getRole().getRoleName())) {
+            throw new IllegalArgumentException("숙소 관리자 권한을 가진 회원만 신청할 수 있습니다.");
+        }
+
+        // [검증 1] 내 숙소에 투숙 예정/진행 중인 예약이 남아있는지 확인
+        LocalDate today = LocalDate.now();
+        List<Reservation> hostReservations = reservationRepository.findReservationsByHostId(member.getMemberId());
+        boolean hasUpcomingReservation = hostReservations.stream()
+                .anyMatch(r -> !"CANCELED".equals(r.getStatus()) && r.getCheckOutDate().isAfter(today));
+
+        if (hasUpcomingReservation) {
+            throw new IllegalStateException("현재 투숙 예정이거나 진행 중인 예약이 존재하여 숙소 관리자 자격을 해지할 수 없습니다.");
+        }
+
+        // [검증 2] 등록된 숙소가 존재하는지 확인
+        List<Accommodation> myAccommodations = accommodationRepository.findByHost_Email(email);
+        if (!myAccommodations.isEmpty()) {
+            throw new IllegalStateException(
+                    "등록된 숙소(" + myAccommodations.size() + "곳)가 존재하여 숙소 관리자 자격을 해지할 수 없습니다. 더이상 서비스하지 않는 경우 숙소 삭제 후 해지 바랍니다."
+            );
+        }
+
+        Role userRole = roleRepository.findByRoleName("ROLE_USER")
+                .orElseThrow(() -> new IllegalArgumentException("ROLE_USER 권한이 존재하지 않습니다."));
+
+        member.downgradeToUser(userRole);
+
+        return jwtTokenProvider.createToken(member.getEmail(), userRole.getRoleName(), member.getName());
+    }
+
+    // 💡 4. 회원 탈퇴 (status -> WITHDRAWN, 이름/이메일 Unknown 처리)
+    @Transactional
+    public void withdrawMember(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        LocalDate today = LocalDate.now();
+
+        // [검증 1] 일반 유저(게스트)로서 체크아웃 전인 진행 예정 예약이 있는지 확인
+        List<Reservation> myGuestReservations = reservationRepository
+                .findByMember_MemberIdOrderByCreatedAtDesc(member.getMemberId());
+        boolean hasUpcomingGuestRes = myGuestReservations.stream()
+                .anyMatch(r -> !"CANCELED".equals(r.getStatus()) && r.getCheckOutDate().isAfter(today));
+
+        if (hasUpcomingGuestRes) {
+            throw new IllegalStateException("이용 예정이거나 투숙 중인 예약이 존재하여 탈퇴할 수 없습니다. 예약을 먼저 취소해 주세요.");
+        }
+
+        // [검증 2] 호스트(ROLE_HOST)인 경우 보유 숙소나 호스트 예약이 남아있는지 확인
+        if ("ROLE_HOST".equals(member.getRole().getRoleName())) {
+            List<Reservation> hostReservations = reservationRepository.findReservationsByHostId(member.getMemberId());
+            boolean hasUpcomingHostRes = hostReservations.stream()
+                    .anyMatch(r -> !"CANCELED".equals(r.getStatus()) && r.getCheckOutDate().isAfter(today));
+
+            List<Accommodation> myAccommodations = accommodationRepository.findByHost_Email(email);
+
+            if (hasUpcomingHostRes || !myAccommodations.isEmpty()) {
+                throw new IllegalStateException("보유 중인 숙소 또는 진행 예정인 예약이 존재하여 탈퇴할 수 없습니다. 숙소 삭제 후 다시 시도해 주세요.");
+            }
+        }
+
+        Role userRole = roleRepository.findByRoleName("ROLE_USER").orElse(member.getRole());
+
+        // 상태 WITHDRAWN 변경 및 이메일/이름 Unknown 처리 (기존 예약·리뷰 FK는 깨지지 않고 유지됨!)
+        member.withdraw(userRole);
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/member/service/AuthService.java <==
+package org.example.hotelbooking.domain.member.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.member.dto.AuthDto;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.entity.Role;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.member.repository.RoleRepository;
+import org.example.hotelbooking.global.security.JwtTokenProvider;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final MemberRepository memberRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    @Transactional
+    public void signup(AuthDto.SignupRequest request) {
+        if (memberRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("이미 가입된 이메일입니다.");
+        }
+
+        // 1. 기본 권한(ROLE_USER)을 DB에서 찾아옵니다.
+        // (주의: 오라클 ROLES 테이블에 'ROLE_USER' 데이터가 미리 1줄 들어있어야 합니다!)
+        Role userRole = roleRepository.findByRoleName("ROLE_USER")
+                .orElseThrow(() -> new IllegalArgumentException("시스템 에러: 기본 권한이 존재하지 않습니다."));
+
+        // 2. 비밀번호를 암호화해서 Member 엔티티를 조립합니다.
+        Member member = Member.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword())) // 암호화!
+                .name(request.getName())
+                .businessNo(request.getBusinessNo())
+                .role(userRole)
+                .build();
+
+        // 3. DB에 저장
+        memberRepository.save(member);
+    }
+
+    @Transactional(readOnly = true)
+    public AuthDto.TokenResponse login(AuthDto.LoginRequest request) {
+        // 1. 이메일로 회원 찾기
+        Member member = memberRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
+
+        // 탈퇴한 계정(WITHDRAWN)인지 확인
+        if ("WITHDRAWN".equals(member.getStatus())) {
+            throw new IllegalArgumentException("이미 탈퇴 처리된 계정입니다.");
+        }
+
+        // 2. 비밀번호 일치 여부 확인 (입력된 평문 비밀번호 vs DB의 암호화된 비밀번호)
+        if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+        }
+
+        // 3. 성공 시 JWT 토큰 생성 후 반환 (member.getRole().getRoleName()으로 "ROLE_USER" 추출)
+        String token = jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
+
+        return new AuthDto.TokenResponse(token);
+    }
+
+    // 유저에서 숙소관리자 신청 후 숙소관리자(ROLE_HOST) 권한 부여 로직
+    @Transactional
+    public String upgradeToHost(String email, String businessNo) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Role hostRole = roleRepository.findByRoleName("ROLE_HOST")
+                .orElseThrow(() -> new IllegalArgumentException("ROLE_HOST 권한이 존재하지 않습니다."));
+
+        // 리플렉션이나 setter 없이 엔티티 업데이트 (Member 엔티티에 비즈니스 메서드가 없다면 builder 또는 편의 메서드 활용)
+        // Member.java에 호스트 전환용 메서드를 추가하거나 아래처럼 필드를 변경합니다.
+        member.updateToHost(businessNo, hostRole);
+
+        return jwtTokenProvider.createToken(member.getEmail(), hostRole.getRoleName(), member.getName());
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/member/service/KakaoAuthService.java <==
+package org.example.hotelbooking.domain.member.service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.entity.Role;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.member.repository.RoleRepository;
+import org.example.hotelbooking.global.security.JwtTokenProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class KakaoAuthService {
+
+    @Value("${kakao.client.id}")
+    private String clientId;
+
+    @Value("${kakao.redirect.uri}")
+    private String redirectUri;
+
+    private final MemberRepository memberRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    @Transactional
+    public String kakaoLogin(String code) {
+        // 1. 카카오 서버로 인가 코드를 보내서 '액세스 토큰'을 받아옵니다.
+        String accessToken = getAccessToken(code);
+
+        // 2. 받아온 액세스 토큰으로 카카오 유저 정보(고유번호, 닉네임)를 가져옵니다.
+        JsonNode userInfo = getUserInfo(accessToken);
+        String kakaoId = userInfo.get("id").asText();
+        String nickname = userInfo.get("properties").get("nickname").asText();
+
+        // 3. 이메일을 못 받으므로, 카카오 고유번호를 이용해 가짜 이메일을 생성합니다.
+        String dummyEmail = "kakao_" + kakaoId + "@hotel.com";
+
+        // 4. DB에 이미 있는 유저인지 확인하고, 없으면 자동 회원가입 시킵니다.
+        Member member = memberRepository.findByEmail(dummyEmail).orElseGet(() -> {
+            Role userRole = roleRepository.findByRoleName("ROLE_USER")
+                    .orElseThrow(() -> new IllegalArgumentException("기본 권한이 없습니다."));
+
+            // 비밀번호는 랜덤 UUID로 생성해서 암호화 (어차피 카카오 로그인은 비밀번호를 안 씁니다)
+            Member newMember = Member.builder()
+                    .email(dummyEmail)
+                    .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                    .name(nickname)
+                    .role(userRole)
+                    .build();
+            return memberRepository.save(newMember);
+        });
+
+        // 5. 회원가입(또는 로그인)이 완료되었으니, 우리 사이트 전용 JWT 토큰을 발급합니다.
+        return jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
+    }
+
+    // --- 카카오 API 통신 메서드 ---
+
+    private String getAccessToken(String code) {
+        RestTemplate rt = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-type", "application/x-www-form-urlencoded;charset=utf-8");
+
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("grant_type", "authorization_code");
+        params.add("client_id", clientId);
+        params.add("redirect_uri", redirectUri);
+        params.add("code", code);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
+        ResponseEntity<String> response = rt.postForEntity("https://kauth.kakao.com/oauth/token", request, String.class);
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode node = mapper.readTree(response.getBody());
+            return node.get("access_token").asText();
+        } catch (Exception e) {
+            throw new RuntimeException("카카오 토큰 발급 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private JsonNode getUserInfo(String accessToken) {
+        RestTemplate rt = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Authorization", "Bearer " + accessToken);
+        headers.add("Content-type", "application/x-www-form-urlencoded;charset=utf-8");
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(headers);
+        ResponseEntity<String> response = rt.exchange("https://kapi.kakao.com/v2/user/me", HttpMethod.GET, request, String.class);
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readTree(response.getBody());
+        } catch (Exception e) {
+            throw new RuntimeException("카카오 유저 정보 조회 중 오류가 발생했습니다.", e);
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/reservation/dto/ReservationDto.java <==
+package org.example.hotelbooking.domain.reservation.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.reservation.entity.Reservation;
+import org.example.hotelbooking.domain.room.entity.Room;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+public class ReservationDto {
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class Request {
+        private Long roomId;
+        private LocalDate checkInDate;
+        private LocalDate checkOutDate;
+        private Integer totalPrice;
+    }
+
+    @Getter
+    public static class Response {
+        private String message;
+        private Long roomId;
+        private String status;
+
+        @Builder
+        public Response(String message, Long roomId, String status) {
+            this.message = message;
+            this.roomId = roomId;
+            this.status = status;
+        }
+    }
+
+    // 💡 내 예약 내역 조회 응답 DTO
+    @Getter
+    @Builder
+    public static class MyReservationResponse {
+        private Long reservationId;
+        private String status;           // COMPLETED, CANCELED
+        private LocalDate checkInDate;
+        private LocalDate checkOutDate;
+        private Integer totalPrice;
+        private LocalDateTime createdAt;
+
+        // 숙소 정보
+        private String contentId;
+        private String stayTitle;
+        private String lodgingType;
+        private String addr;
+        private String tel;
+        private String firstImage;
+        private String checkinTime;
+        private String checkoutTime;
+
+        // 객실 정보
+        private Long roomId;
+        private String roomTitle;
+        private String roomBaseCount;
+        private String roomMaxCount;
+
+        // 리뷰 작성 여부
+        private boolean hasReview;
+
+        public static MyReservationResponse of(Reservation r, boolean hasReview) {
+            Room room = r.getRoom();
+            Accommodation accom = room.getAccommodation();
+
+            return MyReservationResponse.builder()
+                    .reservationId(r.getReservationId())
+                    .status(r.getStatus())
+                    .checkInDate(r.getCheckInDate())
+                    .checkOutDate(r.getCheckOutDate())
+                    .totalPrice(r.getTotalPrice())
+                    .createdAt(r.getCreatedAt())
+                    .contentId(accom.getContentId())
+                    .stayTitle(accom.getTitle())
+                    .lodgingType(accom.getLodgingType())
+                    .addr(accom.getAddr())
+                    .tel(accom.getTel())
+                    .firstImage(accom.getFirstImage() != null ? accom.getFirstImage() : accom.getFirstImage2())
+                    .checkinTime(accom.getCheckinTime())
+                    .checkoutTime(accom.getCheckoutTime())
+                    .roomId(room.getRoomId())
+                    .roomTitle(room.getRoomTitle())
+                    .roomBaseCount(room.getRoomBaseCount())
+                    .roomMaxCount(room.getRoomMaxCount())
+                    .hasReview(hasReview)
+                    .build();
+        }
+    }
+
+    // 💡 [신규 추가] 숙소 관리자(호스트)용 예약 관리 조회 응답 DTO
+    @Getter
+    @Builder
+    public static class HostReservationResponse {
+        private Long reservationId;
+        private String status;           // COMPLETED, CANCELED
+        private LocalDate checkInDate;
+        private LocalDate checkOutDate;
+        private Integer totalPrice;
+        private LocalDateTime createdAt;
+
+        // 예약자(게스트) 정보
+        private Long guestId;
+        private String guestName;
+        private String guestEmail;
+
+        // 숙소 및 객실 정보
+        private String contentId;
+        private String stayTitle;
+        private String firstImage;
+        private Long roomId;
+        private String roomTitle;
+        private String roomBaseCount;
+        private String roomMaxCount;
+
+        public static HostReservationResponse from(Reservation r) {
+            Member guest = r.getMember();
+            Room room = r.getRoom();
+            Accommodation accom = room.getAccommodation();
+
+            return HostReservationResponse.builder()
+                    .reservationId(r.getReservationId())
+                    .status(r.getStatus())
+                    .checkInDate(r.getCheckInDate())
+                    .checkOutDate(r.getCheckOutDate())
+                    .totalPrice(r.getTotalPrice())
+                    .createdAt(r.getCreatedAt())
+                    .guestId(guest.getMemberId())
+                    .guestName(guest.getName())
+                    .guestEmail(guest.getEmail())
+                    .contentId(accom.getContentId())
+                    .stayTitle(accom.getTitle())
+                    .firstImage(accom.getFirstImage() != null ? accom.getFirstImage() : accom.getFirstImage2())
+                    .roomId(room.getRoomId())
+                    .roomTitle(room.getRoomTitle())
+                    .roomBaseCount(room.getRoomBaseCount())
+                    .roomMaxCount(room.getRoomMaxCount())
+                    .build();
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/reservation/repository/ReservationRepository.java <==
+package org.example.hotelbooking.domain.reservation.repository;
+
+import org.example.hotelbooking.domain.reservation.entity.Reservation;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+public interface ReservationRepository extends JpaRepository<Reservation, Long> {
+    // 💡 일반 유저가 본인의 예약 내역을 최신순으로 조회할 때 사용
+    @Query("SELECT r FROM Reservation r " +
+            "JOIN FETCH r.room rm " +
+            "JOIN FETCH rm.accommodation a " +
+            "WHERE r.member.memberId = :memberId " +
+            "ORDER BY r.createdAt DESC")
+    List<Reservation> findByMember_MemberIdOrderByCreatedAtDesc(@Param("memberId") Long memberId);
+
+    // 💡 호스트가 본인 소유의 숙소에 접수된 모든 예약 내역을 조회할 때 사용 (JPQL 사용)
+    @Query("SELECT r FROM Reservation r " +
+            "JOIN FETCH r.member m " +
+            "JOIN FETCH r.room rm " +
+            "JOIN FETCH rm.accommodation a " +
+            "WHERE a.host.memberId = :hostId " +
+            "ORDER BY r.createdAt DESC")
+    List<Reservation> findReservationsByHostId(@Param("hostId") Long hostId);
+}
+==> src/main/java/org/example/hotelbooking/domain/reservation/entity/Reservation.java <==
+package org.example.hotelbooking.domain.reservation.entity;
+
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.room.entity.Room;
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "RESERVATION")
+public class Reservation {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "RESERVATION_ID")
+    private Long reservationId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "MEMBER_ID", nullable = false)
+    private Member member;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ROOM_ID", nullable = false)
+    private Room room;
+
+    @Column(name = "CHECK_IN_DATE", nullable = false)
+    private LocalDate checkInDate;
+
+    @Column(name = "CHECK_OUT_DATE", nullable = false)
+    private LocalDate checkOutDate;
+
+    @Column(name = "TOTAL_PRICE", nullable = false)
+    private Integer totalPrice;
+
+    @Column(length = 20)
+    private String status;
+
+    @Column(name = "CREATED_AT", updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        if (this.status == null) this.status = "COMPLETED";
+    }
+    // 빌더 추가
+    @Builder
+    public Reservation(Member member, Room room, LocalDate checkInDate, LocalDate checkOutDate, Integer totalPrice, String status) {
+        this.member = member;
+        this.room = room;
+        this.checkInDate = checkInDate;
+        this.checkOutDate = checkOutDate;
+        this.totalPrice = totalPrice;
+        this.status = status;
+    }
+    // 💡 예약 취소 로직
+    public void cancel() {
+        if ("CANCELED".equals(this.status)) {
+            throw new IllegalStateException("이미 취소된 예약입니다.");
+        }
+        this.status = "CANCELED";
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/reservation/facade/ReservationLockFacade.java <==
+package org.example.hotelbooking.domain.reservation.facade;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.hotelbooking.domain.reservation.repository.ReservationRepository;
+import org.example.hotelbooking.domain.reservation.service.ReservationService;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class ReservationLockFacade {
+
+    private final RedissonClient redissonClient;
+    private final ReservationService reservationService;
+    private final ReservationRepository reservationRepository;
+
+    public void reserveRoomWithLock(Long memberId, Long roomId, LocalDate checkIn, LocalDate checkOut, Integer totalPrice) {
+        // 객실 고유 ID를 기반으로 락 키 생성 (해당 객실에 대해서만 줄을 세움)
+        String lockKey = "room_lock:" + roomId;
+        RLock lock = redissonClient.getLock(lockKey);
+
+        try {
+            // 락 획득 시도: 최대 5초 대기, 락 획득 후 3초간 유지
+            boolean isLocked = lock.tryLock(5, 3, TimeUnit.SECONDS);
+
+            if (!isLocked) {
+                log.warn("락 획득 실패 - roomId: {}", roomId);
+                throw new RuntimeException("현재 예약자가 많아 처리가 지연되고 있습니다. 잠시 후 다시 시도해주세요.");
+            }
+
+            // 💡 락 획득 성공 시, 안전하게 트랜잭션(예약 및 재고 차감) 실행
+            reservationService.createReservation(memberId, roomId, checkIn, checkOut, totalPrice);
+
+        } catch (InterruptedException e) {
+            log.error("예약 락 대기 중 인터럽트 발생", e);
+            throw new RuntimeException("예약 처리 중 시스템 오류가 발생했습니다.");
+        } finally {
+            // 로직이 끝나면 반드시 락 반납
+            if (lock.isLocked() && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
+    }
+    public void cancelReservationWithLock(Long reservationId, Long memberId) {
+        // 락을 걸 roomId를 알아내기 위해 예약 정보 먼저 조회
+        org.example.hotelbooking.domain.reservation.entity.Reservation reservation =
+                reservationRepository.findById(reservationId)
+                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 예약입니다."));
+
+        Long roomId = reservation.getRoom().getRoomId();
+        String lockKey = "room_lock:" + roomId;
+        RLock lock = redissonClient.getLock(lockKey);
+
+        try {
+            boolean isLocked = lock.tryLock(5, 3, TimeUnit.SECONDS);
+            if (!isLocked) {
+                log.warn("취소 락 획득 실패 - reservationId: {}", reservationId);
+                throw new RuntimeException("현재 처리량이 많아 지연되고 있습니다. 잠시 후 다시 시도해주세요.");
+            }
+
+            // 💡 락 획득 성공 시, 안전하게 취소 및 재고 복구 트랜잭션 실행
+            reservationService.cancelReservation(reservationId, memberId);
+
+        } catch (InterruptedException e) {
+            log.error("취소 락 대기 중 인터럽트 발생", e);
+            throw new RuntimeException("취소 처리 중 시스템 오류가 발생했습니다.");
+        } finally {
+            if (lock.isLocked() && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/reservation/controller/ReservationController.java <==
+package org.example.hotelbooking.domain.reservation.controller;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.reservation.dto.ReservationDto;
+import org.example.hotelbooking.domain.reservation.facade.ReservationLockFacade;
+import org.example.hotelbooking.domain.reservation.service.ReservationService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@Slf4j
+@RestController
+@RequestMapping("/api/v1/reservations")
+@RequiredArgsConstructor
+public class ReservationController {
+
+    private final ReservationLockFacade reservationLockFacade;
+    private final MemberRepository memberRepository;
+    private final ReservationService reservationService;
+
+    @PostMapping
+    public ResponseEntity<ReservationDto.Response> createReservation(
+            @RequestBody ReservationDto.Request request,
+            @AuthenticationPrincipal String email // 💡 JWT 토큰에서 꺼낸 로그인 유저의 이메일
+    ) {
+        // 💡 토큰의 이메일로 DB 회원 조회 -> 실제 memberId(22L) 획득
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다. email=" + email));
+
+        reservationLockFacade.reserveRoomWithLock(
+                member.getMemberId(), // 22L가 안전하게 전달됨
+                request.getRoomId(),
+                request.getCheckInDate(),
+                request.getCheckOutDate(),
+                request.getTotalPrice()
+        );
+
+        // 💡 2. 성공 응답 반환
+        ReservationDto.Response response = ReservationDto.Response.builder()
+                .message("예약이 성공적으로 완료되었습니다.")
+                .roomId(request.getRoomId())
+                .status("COMPLETED")
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    // 내 예약 내역 목록 조회 API
+    @GetMapping("/my")
+    public ResponseEntity<List<ReservationDto.MyReservationResponse>> getMyReservations(
+            @AuthenticationPrincipal String email
+    ) {
+        return ResponseEntity.ok(reservationService.getMyReservations(email));
+    }
+    // 숙소 관리자(호스트): 내 숙소에 접수된 예약 내역 목록 조회 API
+    @GetMapping("/host")
+    public ResponseEntity<List<ReservationDto.HostReservationResponse>> getHostReservations(
+            @AuthenticationPrincipal String email
+    ) {
+        return ResponseEntity.ok(reservationService.getHostReservations(email));
+    }
+
+    // 예약 취소 API
+    @PatchMapping("/{reservationId}/cancel")
+    public ResponseEntity<String> cancelReservation(
+            @PathVariable Long reservationId,
+            @AuthenticationPrincipal String email
+    ) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+
+        log.info("예약 취소 요청 수신 - ReservationId: {}, MemberId: {}", reservationId, member.getMemberId());
+        reservationLockFacade.cancelReservationWithLock(reservationId, member.getMemberId());
+
+        return ResponseEntity.ok("예약이 성공적으로 취소되었습니다.");
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/reservation/service/ReservationService.java <==
+package org.example.hotelbooking.domain.reservation.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.member.service.MailService;
+import org.example.hotelbooking.domain.reservation.dto.ReservationDto;
+import org.example.hotelbooking.domain.reservation.entity.Reservation;
+import org.example.hotelbooking.domain.reservation.repository.ReservationRepository;
+import org.example.hotelbooking.domain.review.repository.ReviewRepository;
+import org.example.hotelbooking.domain.room.entity.Room;
+import org.example.hotelbooking.domain.room.entity.RoomInventory;
+import org.example.hotelbooking.domain.room.repository.RoomInventoryRepository;
+import org.example.hotelbooking.domain.room.repository.RoomRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class ReservationService {
+
+    private final ReservationRepository reservationRepository;
+    private final RoomInventoryRepository roomInventoryRepository;
+    private final MemberRepository memberRepository;
+    private final RoomRepository roomRepository;
+    private final ReviewRepository reviewRepository;
+    private final MailService mailService;
+
+    @Transactional
+    public void createReservation(Long memberId, Long roomId, LocalDate checkIn, LocalDate checkOut, Integer totalPrice) {
+        // 1. 체크인 ~ 체크아웃 전날(-1일)까지의 재고 조회
+        List<RoomInventory> inventories = roomInventoryRepository
+                .findInventoriesForReservation(roomId, checkIn, checkOut.minusDays(1));
+
+        // 2. 요청한 숙박 일수와 DB에 세팅된 재고 일수가 일치하는지 검증
+        long days = java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut);
+        if (inventories.size() != days) {
+            throw new IllegalArgumentException("예약할 수 없는 날짜가 포함되어 있습니다.");
+        }
+
+        // 3. 재고 차감 (Dirty Checking으로 자동 UPDATE 쿼리 발생)
+        for (RoomInventory inventory : inventories) {
+            inventory.decreaseCount(1);
+        }
+
+        // 4. 예약 정보 저장
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 객실입니다."));
+
+        Reservation reservation = Reservation.builder()
+                .member(member)
+                .room(room)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .totalPrice(totalPrice)
+                .status("COMPLETED")
+                .build();
+
+        Reservation savedReservation = reservationRepository.save(reservation);
+
+        // 💡 5. 예약 확정 안내 이메일 비동기 발송
+        Accommodation accom = room.getAccommodation();
+        mailService.sendReservationConfirmation(
+                member.getEmail(),
+                member.getName(),
+                savedReservation.getReservationId(),
+                accom.getContentId(),
+                accom.getTitle(),
+                accom.getAddr(),
+                accom.getTel(),
+                accom.getCheckinTime(),
+                accom.getCheckoutTime(),
+                room.getRoomTitle(),
+                checkIn,
+                checkOut,
+                totalPrice
+        );
+    }
+    // 기존 createReservation 아래에 추가
+    @Transactional
+    public void cancelReservation(Long reservationId, Long requesterMemberId) {
+        // 1. 예약 정보 조회
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 예약입니다."));
+
+        Long guestMemberId = reservation.getMember().getMemberId();
+        Member host = reservation.getRoom().getAccommodation().getHost();
+        Long hostMemberId = (host != null) ? host.getMemberId() : null;
+
+        boolean isGuest = guestMemberId.equals(requesterMemberId);
+        boolean isHostOwner = hostMemberId != null && hostMemberId.equals(requesterMemberId);
+
+        // 2. 본인의 예약인지 검증 및 취소, 숙소 관리자 예약 취소
+        if (!isGuest && !isHostOwner) {
+            throw new IllegalArgumentException("예약자 본인 또는 해당 숙소의 관리자만 예약을 취소할 수 있습니다.");
+        }
+
+        // 3. 예약 상태 취소로 변경 (Dirty Checking)
+        reservation.cancel();
+
+        // 4. 재고 복구
+        List<RoomInventory> inventories = roomInventoryRepository.findInventoriesForReservation(
+                reservation.getRoom().getRoomId(),
+                reservation.getCheckInDate(),
+                reservation.getCheckOutDate().minusDays(1)
+        );
+
+        for (RoomInventory inventory : inventories) {
+            inventory.increaseCount(1);
+        }
+    }
+
+    // 내 예약 목록 조회
+    @Transactional(readOnly = true)
+    public List<ReservationDto.MyReservationResponse> getMyReservations(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        List<Reservation> reservations = reservationRepository
+                .findByMember_MemberIdOrderByCreatedAtDesc(member.getMemberId());
+
+        return reservations.stream()
+                .map(r -> {
+                    boolean hasReview = reviewRepository.existsByReservation_ReservationId(r.getReservationId());
+                    return ReservationDto.MyReservationResponse.of(r, hasReview);
+                })
+                .toList();
+    }
+
+    // 💡 숙소 관리자(호스트)용 내 숙소에 접수된 예약 목록 조회
+    @Transactional(readOnly = true)
+    public List<ReservationDto.HostReservationResponse> getHostReservations(String email) {
+        Member host = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        List<Reservation> reservations = reservationRepository
+                .findReservationsByHostId(host.getMemberId());
+
+        return reservations.stream()
+                .map(ReservationDto.HostReservationResponse::from)
+                .toList();
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/review/dto/ReviewDto.java <==
+package org.example.hotelbooking.domain.review.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.example.hotelbooking.domain.review.entity.Review;
+
+import java.time.LocalDateTime;
+
+public class ReviewDto {
+
+    @Getter
+    @NoArgsConstructor
+    public static class CreateRequest {
+        private Long reservationId;
+        private Integer rating;
+        private String content;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class ReplyRequest {
+        private String reply;
+    }
+
+    @Getter
+    @Builder
+    public static class Response {
+        private Long reviewId;
+        private String contentId;
+        private String stayTitle;
+        private String roomTitle;
+        private String authorName;
+        private Integer rating;
+        private String content;
+        private LocalDateTime createdAt;
+        private String hostReply;
+        private LocalDateTime repliedAt;
+
+        public static Response from(Review r) {
+            return Response.builder()
+                    .reviewId(r.getReviewId())
+                    .contentId(r.getAccommodation().getContentId())
+                    .stayTitle(r.getAccommodation().getTitle())
+                    .roomTitle(r.getReservation() != null && r.getReservation().getRoom() != null
+                            ? r.getReservation().getRoom().getRoomTitle()
+                            : "기본 객실")
+                    .authorName(r.getMember() != null ? r.getMember().getName() : "익명")
+                    .rating(r.getRating())
+                    .content(r.getContent())
+                    .createdAt(r.getCreatedAt())
+                    .hostReply(r.getHostReply())
+                    .repliedAt(r.getRepliedAt())
+                    .build();
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/review/repository/ReviewRepository.java <==
+package org.example.hotelbooking.domain.review.repository;
+
+import org.example.hotelbooking.domain.review.entity.Review;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+public interface ReviewRepository extends JpaRepository<Review, Long> {
+
+    // 💡 특정 숙소에 달린 모든 리뷰를 최신순으로 가져오는 메서드
+    @Query("SELECT rv FROM Review rv " +
+            "JOIN FETCH rv.member m " +
+            "JOIN FETCH rv.reservation res " +
+            "JOIN FETCH res.room rm " +
+            "WHERE rv.accommodation.contentId = :contentId " +
+            "ORDER BY rv.createdAt DESC")
+    List<Review> findByAccommodation_ContentIdOrderByCreatedAtDesc(@Param("contentId") String contentId);
+
+    @Query("SELECT rv FROM Review rv " +
+            "JOIN FETCH rv.member m " +
+            "JOIN FETCH rv.accommodation a " +
+            "JOIN FETCH rv.reservation res " +
+            "JOIN FETCH res.room rm " +
+            "WHERE a.host.email = :email " +
+            "ORDER BY rv.createdAt DESC")
+    List<Review> findAllByHostEmail(@Param("email") String email);
+
+    @Query("SELECT rv FROM Review rv " +
+            "JOIN FETCH rv.member m " +
+            "JOIN FETCH rv.accommodation a " +
+            "JOIN FETCH rv.reservation res " +
+            "JOIN FETCH res.room rm " +
+            "ORDER BY rv.createdAt DESC")
+    List<Review> findAllWithDetails();
+
+    // 💡 특정 예약건에 이미 리뷰가 작성되었는지 확인 (1예약 1리뷰 방어용)
+    boolean existsByReservation_ReservationId(Long reservationId);
+
+    // 💡 숙소 삭제 시 해당 숙소에 작성된 리뷰 일괄 삭제
+    void deleteByAccommodation_ContentId(String contentId);
+}
+==> src/main/java/org/example/hotelbooking/domain/review/entity/Review.java <==
+package org.example.hotelbooking.domain.review.entity;
+
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.reservation.entity.Reservation;
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@Builder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "REVIEW")
+public class Review {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "REVIEW_ID")
+    private Long reviewId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "MEMBER_ID", nullable = false)
+    private Member member;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "CONTENT_ID", nullable = false)
+    private Accommodation accommodation;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "RESERVATION_ID", nullable = false, unique = true)
+    private Reservation reservation;
+
+    @Column(nullable = false)
+    private Integer rating;
+
+    @Lob
+    @Column(nullable = false)
+    private String content;
+
+    @Lob
+    @Column(name = "HOST_REPLY")
+    private String hostReply;
+
+    @Column(name = "REPLIED_AT")
+    private LocalDateTime repliedAt;
+
+    @Column(name = "CREATED_AT", updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    // 숙소 관리자 답글 등록/수정
+    public void updateReply(String reply) {
+        this.hostReply = reply;
+        this.repliedAt = LocalDateTime.now();
+    }
+
+    // 숙소 관리자 답글 삭제
+    public void deleteReply() {
+        this.hostReply = null;
+        this.repliedAt = null;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/review/controller/ReviewController.java <==
+package org.example.hotelbooking.domain.review.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.review.dto.ReviewDto;
+import org.example.hotelbooking.domain.review.service.ReviewService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/reviews")
+@RequiredArgsConstructor
+public class ReviewController {
+
+    private final ReviewService reviewService;
+
+    // 1. 숙소별 리뷰 목록 조회 (누구나 조회 가능)
+    @GetMapping("/stays/{contentId}")
+    public ResponseEntity<List<ReviewDto.Response>> getStayReviews(@PathVariable String contentId) {
+        return ResponseEntity.ok(reviewService.getReviewsByStay(contentId));
+    }
+
+    // 2. 고객 리뷰 등록
+    @PostMapping
+    public ResponseEntity<?> createReview(
+            @AuthenticationPrincipal String email,
+            @RequestBody ReviewDto.CreateRequest request
+    ) {
+        try {
+            reviewService.createReview(email, request);
+            return ResponseEntity.ok(Map.of("message", "소중한 리뷰가 등록되었습니다."));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // 3. 숙소 관리자(호스트) 내 숙소 전체 리뷰 조회
+    @GetMapping("/host")
+    public ResponseEntity<List<ReviewDto.Response>> getHostReviews(@AuthenticationPrincipal String email) {
+        return ResponseEntity.ok(reviewService.getManageReviews(email));
+    }
+
+    // 4. 숙소 관리자 답글 등록/수정
+    @PostMapping("/{reviewId}/reply")
+    public ResponseEntity<?> saveReply(
+            @PathVariable Long reviewId,
+            @RequestBody ReviewDto.ReplyRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        try {
+            reviewService.saveReply(email, reviewId, request.getReply());
+            return ResponseEntity.ok(Map.of("message", "답글이 저장되었습니다."));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // 5. 숙소 관리자 답글 삭제
+    @DeleteMapping("/{reviewId}/reply")
+    public ResponseEntity<?> deleteReply(
+            @PathVariable Long reviewId,
+            @AuthenticationPrincipal String email
+    ) {
+        try {
+            reviewService.deleteReply(email, reviewId);
+            return ResponseEntity.ok(Map.of("message", "답글이 삭제되었습니다."));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/review/service/ReviewService.java <==
+package org.example.hotelbooking.domain.review.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.reservation.entity.Reservation;
+import org.example.hotelbooking.domain.reservation.repository.ReservationRepository;
+import org.example.hotelbooking.domain.review.dto.ReviewDto;
+import org.example.hotelbooking.domain.review.entity.Review;
+import org.example.hotelbooking.domain.review.repository.ReviewRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class ReviewService {
+
+    private final ReviewRepository reviewRepository;
+    private final ReservationRepository reservationRepository;
+    private final MemberRepository memberRepository;
+
+    // 1. 특정 숙소의 전체 리뷰 조회 (숙소 상세페이지용)
+    public List<ReviewDto.Response> getReviewsByStay(String contentId) {
+        return reviewRepository.findByAccommodation_ContentIdOrderByCreatedAtDesc(contentId)
+                .stream()
+                .map(ReviewDto.Response::from)
+                .toList();
+    }
+
+    // 2. 고객 리뷰 작성
+    @Transactional
+    public void createReview(String email, ReviewDto.CreateRequest request) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Reservation reservation = reservationRepository.findById(request.getReservationId())
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 예약입니다."));
+
+        if (!reservation.getMember().getMemberId().equals(member.getMemberId())) {
+            throw new IllegalArgumentException("본인이 예약한 내역에만 리뷰를 작성할 수 있습니다.");
+        }
+
+        if ("CANCELED".equals(reservation.getStatus())) {
+            throw new IllegalArgumentException("취소된 예약에는 리뷰를 작성할 수 없습니다.");
+        }
+
+        if (reviewRepository.existsByReservation_ReservationId(reservation.getReservationId())) {
+            throw new IllegalStateException("이미 리뷰를 작성한 예약입니다.");
+        }
+
+        Accommodation accom = reservation.getRoom().getAccommodation();
+
+        Review review = Review.builder()
+                .member(member)
+                .accommodation(accom)
+                .reservation(reservation)
+                .rating(request.getRating() != null ? request.getRating() : 5)
+                .content(request.getContent())
+                .build();
+
+        reviewRepository.save(review);
+    }
+
+    // 3. 숙소 관리자(HOST) 또는 총괄 관리자(ADMIN)용 리뷰 목록 조회
+    public List<ReviewDto.Response> getManageReviews(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        String role = member.getRole().getRoleName();
+        List<Review> reviews = "ROLE_ADMIN".equals(role)
+                ? reviewRepository.findAllWithDetails()
+                : reviewRepository.findAllByHostEmail(email);
+
+        return reviews.stream()
+                .map(ReviewDto.Response::from)
+                .toList();
+    }
+
+    // 4. 답글 등록 및 수정
+    @Transactional
+    public void saveReply(String email, Long reviewId, String replyContent) {
+        if (replyContent == null || replyContent.isBlank()) {
+            throw new IllegalArgumentException("답글 내용을 입력해 주세요.");
+        }
+
+        Review review = getAuthorizedReview(email, reviewId);
+        review.updateReply(replyContent.trim());
+    }
+
+    // 5. 답글 삭제
+    @Transactional
+    public void deleteReply(String email, Long reviewId) {
+        Review review = getAuthorizedReview(email, reviewId);
+        review.deleteReply();
+    }
+
+    private Review getAuthorizedReview(String email, Long reviewId) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 리뷰입니다."));
+
+        boolean isAdmin = "ROLE_ADMIN".equals(member.getRole().getRoleName());
+        boolean isHostOwner = review.getAccommodation().getHost() != null
+                && email.equals(review.getAccommodation().getHost().getEmail());
+
+        if (!isAdmin && !isHostOwner) {
+            throw new IllegalArgumentException("해당 숙소의 관리자만 답글을 관리할 수 있습니다.");
+        }
+        return review;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/dto/TourDto.java <==
+package org.example.hotelbooking.domain.tour.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+import org.example.hotelbooking.domain.tour.entity.TourAttraction;
+import org.example.hotelbooking.domain.tour.entity.TourImage;
+
+import java.util.List;
+
+public class TourDto {
+
+    // 지도 및 목록 표시용 요약 DTO
+    @Getter
+    @Builder
+    public static class SummaryResponse {
+        private String contentId;
+        private String contentTypeId;
+        private String title;
+        private String addr1;
+        private String addr2;
+        private String tel;
+        private String useTime;
+        private String restDate;
+        private String useFee;
+        private String firstImage;
+        private String mapX;
+        private String mapY;
+        private String overview;
+
+        public static SummaryResponse from(TourAttraction t) {
+            return SummaryResponse.builder()
+                    .contentId(t.getContentId())
+                    .contentTypeId(t.getContentTypeId())
+                    .title(t.getTitle())
+                    .addr1(t.getAddr1())
+                    .addr2(t.getAddr2())
+                    .tel(t.getTel())
+                    .useTime(t.getUseTime())
+                    .restDate(t.getRestDate())
+                    .useFee(t.getUseFee())
+                    .firstImage(t.getFirstImage())
+                    .mapX(t.getMapX())
+                    .mapY(t.getMapY())
+                    .overview(t.getOverview())
+                    .build();
+        }
+    }
+
+    // 상세페이지 조회용 DTO
+    @Getter
+    @Builder
+    public static class DetailResponse {
+        private String contentId;
+        private String contentTypeId;
+        private String title;
+        private String addr1;
+        private String addr2;
+        private String zipcode;
+        private String tel;
+        private String openDate;
+        private String restDate;
+        private String useTime;
+        private String parking;
+        private String useFee;
+        private String parkingFee;
+        private String firstImage;
+        private String mapX;
+        private String mapY;
+        private String overview;
+        private List<ImageItem> images;
+
+        @Getter
+        @Builder
+        public static class ImageItem {
+            private Long imageId;
+            private String originImgUrl;
+            private String imgName;
+        }
+
+        public static DetailResponse of(TourAttraction t, List<TourImage> tourImages) {
+            return DetailResponse.builder()
+                    .contentId(t.getContentId())
+                    .contentTypeId(t.getContentTypeId())
+                    .title(t.getTitle())
+                    .addr1(t.getAddr1())
+                    .addr2(t.getAddr2())
+                    .zipcode(t.getZipcode())
+                    .tel(t.getTel())
+                    .openDate(t.getOpenDate())
+                    .restDate(t.getRestDate())
+                    .useTime(t.getUseTime())
+                    .parking(t.getParking())
+                    .useFee(t.getUseFee())
+                    .parkingFee(t.getParkingFee())
+                    .firstImage(t.getFirstImage())
+                    .mapX(t.getMapX())
+                    .mapY(t.getMapY())
+                    .overview(t.getOverview())
+                    .images(tourImages.stream()
+                            .map(img -> ImageItem.builder()
+                                    .imageId(img.getImageId())
+                                    .originImgUrl(img.getOriginImgUrl())
+                                    .imgName(img.getImgName())
+                                    .build())
+                            .toList())
+                    .build();
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/dto/NearbyTourResponseDto.java <==
+package org.example.hotelbooking.domain.tour.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public class NearbyTourResponseDto {
+    private String contentId;
+    private String title;
+    private String firstImage;
+    // 숙소와 관광지간의 거리 반환
+    private double distanceKm;
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/repository/TourImageRepository.java <==
+package org.example.hotelbooking.domain.tour.repository;
+
+import org.example.hotelbooking.domain.tour.entity.TourImage;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface TourImageRepository extends JpaRepository<TourImage, Long> {
+    List<TourImage> findByTourAttraction_ContentIdOrderByImageIdAsc(String contentId);
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/repository/TourAttractionRepository.java <==
+package org.example.hotelbooking.domain.tour.repository;
+
+import org.example.hotelbooking.domain.tour.entity.TourAttraction;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface TourAttractionRepository extends JpaRepository<TourAttraction, String> {
+    List<TourAttraction> findAllByOrderByTitleAsc();
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/repository/TourLikeRepository.java <==
+package org.example.hotelbooking.domain.tour.repository;
+
+import org.example.hotelbooking.domain.tour.entity.TourLike;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface TourLikeRepository extends JpaRepository<TourLike, Long> {
+    boolean existsByMember_MemberIdAndTourAttraction_ContentId(Long memberId, String contentId);
+
+    Optional<TourLike> findByMember_MemberIdAndTourAttraction_ContentId(Long memberId, String contentId);
+
+    @Query("SELECT tl FROM TourLike tl JOIN FETCH tl.tourAttraction WHERE tl.member.memberId = :memberId ORDER BY tl.createdAt DESC")
+    List<TourLike> findByMemberIdWithTour(@Param("memberId") Long memberId);
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/entity/TourAttraction.java <==
+package org.example.hotelbooking.domain.tour.entity;
+
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "TOUR_ATTRACTION")
+public class TourAttraction {
+
+    @Id
+    @Column(name = "CONTENT_ID", length = 20)
+    private String contentId;
+
+    @Column(name = "CONTENT_TYPE_ID", length = 10)
+    private String contentTypeId;
+
+    @Column(name = "TITLE", nullable = false, length = 300)
+    private String title;
+
+    @Column(name = "ADDR1", length = 500)
+    private String addr1;
+
+    @Column(name = "ADDR2", length = 300)
+    private String addr2;
+
+    @Column(name = "ZIPCODE", length = 20)
+    private String zipcode;
+
+    @Column(name = "TEL", length = 300)
+    private String tel;
+
+    @Column(name = "OPEN_DATE", length = 100)
+    private String openDate;
+
+    @Column(name = "REST_DATE", length = 300)
+    private String restDate;
+
+    @Column(name = "USE_TIME", length = 500)
+    private String useTime;
+
+    @Column(name = "PARKING", length = 500)
+    private String parking;
+
+    @Column(name = "USE_FEE", length = 500)
+    private String useFee;
+
+    @Column(name = "PARKING_FEE", length = 300)
+    private String parkingFee;
+
+    @Column(name = "FIRST_IMAGE", length = 1000)
+    private String firstImage;
+
+    @Column(name = "MAP_X", length = 50)
+    private String mapX;
+
+    @Column(name = "MAP_Y", length = 50)
+    private String mapY;
+
+    @Lob
+    @Column(name = "OVERVIEW")
+    private String overview;
+
+    @Column(name = "CREATED_AT", updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "UPDATED_AT")
+    private LocalDateTime updatedAt;
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/entity/TourLike.java <==
+package org.example.hotelbooking.domain.tour.entity;
+
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.example.hotelbooking.domain.member.entity.Member;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "TOUR_LIKE")
+public class TourLike {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "LIKE_ID")
+    private Long likeId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "MEMBER_ID", nullable = false)
+    private Member member;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "CONTENT_ID", nullable = false)
+    private TourAttraction tourAttraction;
+
+    @Column(name = "CREATED_AT", updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @Builder
+    public TourLike(Member member, TourAttraction tourAttraction) {
+        this.member = member;
+        this.tourAttraction = tourAttraction;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/entity/TourImage.java <==
+package org.example.hotelbooking.domain.tour.entity;
+
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "TOUR_IMAGE")
+public class TourImage {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "IMAGE_ID")
+    private Long imageId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "CONTENT_ID", nullable = false)
+    private TourAttraction tourAttraction;
+
+    @Column(name = "ORIGIN_IMG_URL", nullable = false, length = 1000)
+    private String originImgUrl;
+
+    @Column(name = "IMG_NAME", length = 300)
+    private String imgName;
+
+    @Column(name = "CREATED_AT", updatable = false)
+    private LocalDateTime createdAt;
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/controller/TourController.java <==
+package org.example.hotelbooking.domain.tour.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.tour.dto.NearbyTourResponseDto;
+import org.example.hotelbooking.domain.tour.dto.TourDto;
+import org.example.hotelbooking.domain.tour.service.TourSearchService;
+import org.example.hotelbooking.domain.tour.service.TourService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/tours")
+@RequiredArgsConstructor
+public class TourController {
+
+    private final TourService tourService;
+    private final TourSearchService tourSearchService;
+
+    // 1. 전체 관광지 목록 조회 (관광 지도용)
+    @GetMapping
+    public ResponseEntity<List<TourDto.SummaryResponse>> getTours() {
+        return ResponseEntity.ok(tourService.getAllTours());
+    }
+
+    // 2. 특정 숙소 주변의 관광지 목록 조회 API (고정 경로를 {contentId} 보다 위에 배치)
+    @GetMapping("/nearby")
+    public ResponseEntity<List<NearbyTourResponseDto>> getNearbyTours(
+            @RequestParam("accomId") String accomContentId) {
+        List<NearbyTourResponseDto> nearbyTours = tourSearchService.getNearbyTours(accomContentId);
+        return ResponseEntity.ok(nearbyTours);
+    }
+
+    // 3. 내가 찜한 관광지 목록 조회
+    @GetMapping("/likes/my")
+    public ResponseEntity<List<TourDto.SummaryResponse>> getMyTourWishlist(
+            @AuthenticationPrincipal String email
+    ) {
+        return ResponseEntity.ok(tourService.getMyLikedTours(email));
+    }
+
+    // 4. 특정 관광지 찜 상태 단건 확인
+    @GetMapping("/likes/{contentId}/status")
+    public ResponseEntity<Boolean> getTourLikeStatus(
+            @PathVariable String contentId,
+            @AuthenticationPrincipal String email
+    ) {
+        return ResponseEntity.ok(tourService.isLiked(email, contentId));
+    }
+
+    // 5. 관광지 찜 토글
+    @PostMapping("/likes/{contentId}")
+    public ResponseEntity<Map<String, Object>> toggleTourLike(
+            @PathVariable String contentId,
+            @AuthenticationPrincipal String email
+    ) {
+        boolean liked = tourService.toggleTourLike(email, contentId);
+        return ResponseEntity.ok(Map.of(
+                "liked", liked,
+                "message", liked ? "관광지 위시리스트에 저장되었습니다." : "관광지 위시리스트에서 제외되었습니다."
+        ));
+    }
+
+    // 6. 관광지 상세 조회
+    @GetMapping("/{contentId}")
+    public ResponseEntity<TourDto.DetailResponse> getTourDetail(@PathVariable String contentId) {
+        return ResponseEntity.ok(tourService.getTourDetail(contentId));
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/service/TourSearchService.java <==
+package org.example.hotelbooking.domain.tour.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
+import org.example.hotelbooking.domain.tour.dto.NearbyTourResponseDto;
+import org.example.hotelbooking.domain.tour.repository.TourAttractionRepository;
+import org.springframework.data.geo.Circle;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResult;
+import org.springframework.data.geo.GeoResults;
+import org.springframework.data.geo.Point;
+import org.springframework.data.redis.connection.RedisGeoCommands;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.domain.geo.Metrics;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class TourSearchService {
+
+    private final StringRedisTemplate redisTemplate;
+    private final TourAttractionRepository tourRepository;
+    private final AccommodationRepository accommodationRepository;
+
+    public List<NearbyTourResponseDto> getNearbyTours(String accomContentId) {
+        // 기준점(해당 숙소)의 좌표를 오라클에서 가져옵니다.
+        Accommodation accom = accommodationRepository.findById(accomContentId)
+                .orElseThrow(() -> new IllegalArgumentException("숙소를 찾을 수 없습니다."));
+
+        double accomX = Double.parseDouble(accom.getMapX());
+        double accomY = Double.parseDouble(accom.getMapY());
+
+        // 2. Redis에 반경 20km 이내의 관광지를 거리순(오름차순)으로 요청합니다.
+        String key = "tour:geo:locations";
+        Circle circle = new Circle(new Point(accomX, accomY), new Distance(20.0, Metrics.KILOMETERS));
+
+        RedisGeoCommands.GeoRadiusCommandArgs args =
+                RedisGeoCommands.GeoRadiusCommandArgs.newGeoRadiusArgs()
+                        .includeDistance()
+                        .sortAscending()
+                        .limit(9); // 최대 9개까지만 노출
+
+        GeoResults<RedisGeoCommands.GeoLocation<String>> geoResults =
+                redisTemplate.opsForGeo().radius(key, circle, args);
+
+        List<NearbyTourResponseDto> resultList = new ArrayList<>();
+
+        if (geoResults != null) {
+            for (GeoResult<RedisGeoCommands.GeoLocation<String>> geoResult : geoResults) {
+                // Redis에서 가져온 관광지 ID와 거리
+                String tourId = geoResult.getContent().getName();
+                double distance = geoResult.getDistance().getValue();
+
+                // 관광지 ID로 오라클 DB에서 이름, 사진 등을 가져와 DTO로 합칩니다.
+                tourRepository.findById(tourId).ifPresent(tour -> {
+                    double formattedDistance = Math.round(distance * 10) / 10.0;
+
+                    resultList.add(new NearbyTourResponseDto(
+                            tour.getContentId(),
+                            tour.getTitle(),
+                            tour.getFirstImage(),
+                            formattedDistance
+                    ));
+                });
+            }
+        }
+        return resultList;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/tour/service/TourGeoInitializer.java <==
+package org.example.hotelbooking.domain.tour.service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.hotelbooking.domain.tour.entity.TourAttraction;
+import org.example.hotelbooking.domain.tour.repository.TourAttractionRepository;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.data.geo.Point;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class TourGeoInitializer {
+
+    private final StringRedisTemplate redisTemplate;
+    private final TourAttractionRepository tourRepository;
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void syncTourCoordinatesToRedis() {
+        String key = "tour:geo:locations";
+
+        // 기존에 남아있던 캐시 삭제 (초기화)
+        redisTemplate.delete(key);
+
+        List<TourAttraction> tours = tourRepository.findAll();
+
+        for (TourAttraction tour : tours) {
+            try {
+                // 좌표값이 비어있지 않은 데이터만 Redis에 저장
+                if (tour.getMapX() != null && tour.getMapY() != null) {
+                    double x = Double.parseDouble(tour.getMapX());
+                    double y = Double.parseDouble(tour.getMapY());
+
+                    redisTemplate.opsForGeo().add(key, new Point(x, y), tour.getContentId());
+                }
+            } catch (NumberFormatException e) {
+                log.warn("좌표 변환 실패 - 관광지 ID: {}", tour.getContentId());
+            }
+        }
+        log.info("✅ Redis에 {}개의 관광지 좌표 적재 완료!", tours.size());
+    }
+}
+
+==> src/main/java/org/example/hotelbooking/domain/tour/service/TourService.java <==
+package org.example.hotelbooking.domain.tour.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.tour.dto.TourDto;
+import org.example.hotelbooking.domain.tour.entity.TourAttraction;
+import org.example.hotelbooking.domain.tour.entity.TourImage;
+import org.example.hotelbooking.domain.tour.entity.TourLike;
+import org.example.hotelbooking.domain.tour.repository.TourAttractionRepository;
+import org.example.hotelbooking.domain.tour.repository.TourImageRepository;
+import org.example.hotelbooking.domain.tour.repository.TourLikeRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class TourService {
+
+    private final TourAttractionRepository tourAttractionRepository;
+    private final TourImageRepository tourImageRepository;
+    private final TourLikeRepository tourLikeRepository;
+    private final MemberRepository memberRepository;
+
+    // 1. 전체 관광지 목록 조회 (지도 표시용)
+    public List<TourDto.SummaryResponse> getAllTours() {
+        return tourAttractionRepository.findAllByOrderByTitleAsc()
+                .stream()
+                .map(TourDto.SummaryResponse::from)
+                .toList();
+    }
+
+    // 2. 관광지 단건 상세 조회
+    public TourDto.DetailResponse getTourDetail(String contentId) {
+        TourAttraction tour = tourAttractionRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("관광지 정보를 찾을 수 없습니다. contentId=" + contentId));
+
+        List<TourImage> images = tourImageRepository.findByTourAttraction_ContentIdOrderByImageIdAsc(contentId);
+        return TourDto.DetailResponse.of(tour, images);
+    }
+
+    // 3. 관광지 찜 여부 확인
+    public boolean isLiked(String email, String contentId) {
+        if (email == null || contentId == null) return false;
+        Member member = memberRepository.findByEmail(email).orElse(null);
+        if (member == null) return false;
+        return tourLikeRepository.existsByMember_MemberIdAndTourAttraction_ContentId(member.getMemberId(), contentId);
+    }
+
+    // 4. 관광지 찜 토글
+    @Transactional
+    public boolean toggleTourLike(String email, String contentId) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        TourAttraction tour = tourAttractionRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("관광지를 찾을 수 없습니다."));
+
+        Optional<TourLike> existing = tourLikeRepository
+                .findByMember_MemberIdAndTourAttraction_ContentId(member.getMemberId(), contentId);
+
+        if (existing.isPresent()) {
+            tourLikeRepository.delete(existing.get());
+            return false;
+        } else {
+            tourLikeRepository.save(TourLike.builder()
+                    .member(member)
+                    .tourAttraction(tour)
+                    .build());
+            return true;
+        }
+    }
+
+    // 5. 내가 찜한 관광지 목록 조회
+    public List<TourDto.SummaryResponse> getMyLikedTours(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        return tourLikeRepository.findByMemberIdWithTour(member.getMemberId())
+                .stream()
+                .map(tl -> TourDto.SummaryResponse.from(tl.getTourAttraction()))
+                .toList();
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/dto/AccommodationDto.java <==
+package org.example.hotelbooking.domain.accommodation.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+
+public class AccommodationDto {
+
+    @Getter
+    @NoArgsConstructor
+    public static class RegisterRequest {
+        private String contentId;
+        private String title;
+        private String lodgingType;
+        private String tel;
+        private String zipcode;
+        private String addr;
+        private String checkinTime;
+        private String checkoutTime;
+        private String roomCount;
+        private String roomType;
+        private String parking;
+        private String subFacility;
+        private String overview;
+        // 💡 [누락되었던 4개 필드 추가]
+        private String firstImage;
+        private String firstImage2;
+        private String mapX;
+        private String mapY;
+    }
+
+    // 숙소 관리자 숙소 수정 요청 DTO
+    @Getter
+    @NoArgsConstructor
+    public static class UpdateRequest {
+        private String title;
+        private String lodgingType;
+        private String tel;
+        private String zipcode;
+        private String addr;
+        private String checkinTime;
+        private String checkoutTime;
+        private String roomCount;
+        private String roomType;
+        private String parking;
+        private String subFacility;
+        private String overview;
+        private String firstImage;
+        private String firstImage2;
+        private String mapX;
+        private String mapY;
+    }
+
+    // 호스트 내 숙소 조회용 상세 응답 DTO (DB의 모든 컬럼 + 승인상태/반려사유 반환)
+    // 💡 호스트 내 숙소 조회 및 총괄 관리자 심사 공용 상세 응답 DTO
+    @Getter
+    @Builder
+    public static class HostDetailResponse {
+        private String contentId;
+        private String title;
+        private String lodgingType;
+        private String tel;
+        private String zipcode;
+        private String addr;
+        private String checkinTime;
+        private String checkoutTime;
+        private String roomCount;
+        private String roomType;
+        private String parking;
+        private String subFacility;
+        private String overview;
+        private String firstImage;
+        private String firstImage2;
+        private String mapX;
+        private String mapY;
+        private String approvalStatus;
+        private String rejectReason;
+        // 💡 관리자 심사용 호스트 정보 및 등록일시 추가
+        private String hostName;
+        private String hostEmail;
+        private String businessNo;
+        private java.time.LocalDateTime createdAt;
+
+        public static HostDetailResponse from(Accommodation a) {
+            return HostDetailResponse.builder()
+                    .contentId(a.getContentId())
+                    .title(a.getTitle())
+                    .lodgingType(a.getLodgingType())
+                    .tel(a.getTel())
+                    .zipcode(a.getZipcode())
+                    .addr(a.getAddr())
+                    .checkinTime(a.getCheckinTime())
+                    .checkoutTime(a.getCheckoutTime())
+                    .roomCount(a.getRoomCount())
+                    .roomType(a.getRoomType())
+                    .parking(a.getParking())
+                    .subFacility(a.getSubFacility())
+                    .overview(a.getOverview())
+                    .firstImage(a.getFirstImage())
+                    .firstImage2(a.getFirstImage2())
+                    .mapX(a.getMapX())
+                    .mapY(a.getMapY())
+                    .approvalStatus(a.getApprovalStatus() != null ? a.getApprovalStatus().name() : "PENDING")
+                    .rejectReason(a.getRejectReason())
+                    .hostName(a.getHost() != null ? a.getHost().getName() : "정보 없음")
+                    .hostEmail(a.getHost() != null ? a.getHost().getEmail() : "")
+                    .businessNo(a.getHost() != null ? a.getHost().getBusinessNo() : "")
+                    .createdAt(a.getCreatedAt())
+                    .build();
+        }
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/dto/StayDetailResponseDto.java <==
+package org.example.hotelbooking.domain.accommodation.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.room.entity.Room;
+import org.example.hotelbooking.domain.room.entity.RoomImage;
+
+import java.util.List;
+import java.util.Map;
+
+@Getter
+@Builder
+public class StayDetailResponseDto {
+    private String contentId;
+    private String title;
+    private String lodgingType;
+    private String tel;
+    private String zipcode;
+    private String addr;
+    private String checkinTime;
+    private String checkoutTime;
+    private String roomCount;
+    private String roomType;
+    private String parking;
+    private String subFacility;
+    private String overview;
+    private String firstImage;
+    private String firstImage2;
+    private String mapX;
+    private String mapY;
+    private String hostName;
+    private String businessNo;
+    private List<RoomDto> rooms;
+
+    @Getter
+    @Builder
+    public static class RoomDto {
+        private Long roomId;
+        private String roomTitle;
+        private String roomSize;
+        private String roomBaseCount;
+        private String roomMaxCount;
+        private Integer pricePerNight;
+        private Integer availableCount;
+        private List<String> imageUrls;
+    }
+
+    public static StayDetailResponseDto of(Accommodation a, List<Room> rooms, Map<Long, List<RoomImage>> roomImagesMap, Map<Long, Integer> roomAvailableMap) {
+
+
+        return StayDetailResponseDto.builder()
+                .contentId(a.getContentId())
+                .title(a.getTitle())
+                .lodgingType(a.getLodgingType())
+                .tel(a.getTel())
+                .zipcode(a.getZipcode())
+                .addr(a.getAddr())
+                .checkinTime(a.getCheckinTime())
+                .checkoutTime(a.getCheckoutTime())
+                .roomCount(a.getRoomCount())
+                .roomType(a.getRoomType())
+                .parking(a.getParking())
+                .subFacility(a.getSubFacility())
+                .overview(a.getOverview())
+                .firstImage(a.getFirstImage())
+                .firstImage2(a.getFirstImage2())
+                .mapX(a.getMapX())
+                .mapY(a.getMapY())
+                .hostName(a.getHost() != null ? a.getHost().getName() : "제주야호 파트너")
+                // 💡 2. 호스트가 존재하면 MEMBER 테이블의 businessNo 추출, 없으면 기본값 반환
+                .businessNo(a.getHost() != null && a.getHost().getBusinessNo() != null
+                        ? a.getHost().getBusinessNo()
+                        : "등록된 사업자번호 없음")
+                .rooms(rooms.stream().map(r -> {
+                    List<RoomImage> rImages = roomImagesMap.getOrDefault(r.getRoomId(), List.of());
+
+                    List<String> urls = rImages.stream()
+                            .map(RoomImage::getImageUrl)
+                            .toList();
+
+                    Integer available = roomAvailableMap != null
+                            ? roomAvailableMap.getOrDefault(r.getRoomId(), 0)
+                            : 0;
+
+                    return RoomDto.builder()
+                            .roomId(r.getRoomId())
+                            .roomTitle(r.getRoomTitle())
+                            .roomSize(r.getRoomSize())
+                            .roomBaseCount(r.getRoomBaseCount())
+                            .roomMaxCount(r.getRoomMaxCount())
+                            .pricePerNight(r.getPricePerNight())
+                            .availableCount(available)
+                            .imageUrls(urls)
+                            .build();
+                }).toList())
+                .build();
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/dto/AccommodationResponse.java <==
+package org.example.hotelbooking.domain.accommodation.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+
+@Getter
+@Builder
+public class AccommodationResponse {
+    private String contentId;
+    private String title;
+    private String mapX;
+    private String mapY;
+    private String firstImage;
+    private String lodgingType;
+    private String roomType;
+
+    // Entity를 DTO로 변환하는 정적 팩토리 메서드
+    public static AccommodationResponse from(Accommodation entity) {
+        return AccommodationResponse.builder()
+                .contentId(entity.getContentId())
+                .title(entity.getTitle())
+                .mapX(entity.getMapX())
+                .mapY(entity.getMapY())
+                .firstImage(entity.getFirstImage())
+                .lodgingType(entity.getLodgingType())
+                .roomType(entity.getRoomType())
+                .build();
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/dto/AdminRejectRequest.java <==
+package org.example.hotelbooking.domain.accommodation.dto;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@NoArgsConstructor
+public class AdminRejectRequest {
+    private String rejectReason;
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/dto/StayResponseDto.java <==
+package org.example.hotelbooking.domain.accommodation.dto;
+
+import lombok.*;
+import java.math.BigDecimal;
+
+@Getter
+@Setter
+@NoArgsConstructor
+public class StayResponseDto {
+    private String contentId;
+    private Long memberId;
+    private String title;
+    private String lodgingType;
+    private String tel;
+    private String zipcode;
+    private String addr;
+    private String checkinTime;
+    private String checkoutTime;
+    private String roomCount;
+    private String roomType;
+    private String parking;
+    private String subFacility;
+    private String overview;
+    private String firstImage;
+    private String firstImage2;
+    private String mapX;
+    private String mapY;
+    private BigDecimal basePrice;   // 객실 최저가
+    private Long remainingRooms;    // 💡 [신규 추가] 잔여 객실 수
+
+    // 기존 생성자 유지 (호환용)
+    public StayResponseDto(String contentId, Long memberId, String title, String lodgingType,
+                           String tel, String zipcode, String addr, String checkinTime,
+                           String checkoutTime, String roomCount, String roomType,
+                           String parking, String subFacility, String overview,
+                           String firstImage, String firstImage2, String mapX, String mapY,
+                           BigDecimal basePrice) {
+        this(contentId, memberId, title, lodgingType, tel, zipcode, addr, checkinTime,
+                checkoutTime, roomCount, roomType, parking, subFacility, overview,
+                firstImage, firstImage2, mapX, mapY, basePrice, 0L);
+    }
+
+    public StayResponseDto(String contentId, Long memberId, String title, String lodgingType,
+                           String tel, String zipcode, String addr, String checkinTime,
+                           String checkoutTime, String roomCount, String roomType,
+                           String parking, String subFacility, String overview,
+                           String firstImage, String firstImage2, String mapX, String mapY,
+                           Integer basePrice) {
+        this(contentId, memberId, title, lodgingType, tel, zipcode, addr, checkinTime,
+                checkoutTime, roomCount, roomType, parking, subFacility, overview,
+                firstImage, firstImage2, mapX, mapY,
+                basePrice != null ? BigDecimal.valueOf(basePrice) : BigDecimal.ZERO, 0L);
+    }
+
+    // 💡 [신규 추가] 잔여 객실 수(remainingRooms) 포함 생성자
+    public StayResponseDto(String contentId, Long memberId, String title, String lodgingType,
+                           String tel, String zipcode, String addr, String checkinTime,
+                           String checkoutTime, String roomCount, String roomType,
+                           String parking, String subFacility, String overview,
+                           String firstImage, String firstImage2, String mapX, String mapY,
+                           BigDecimal basePrice, Long remainingRooms) {
+        this.contentId = contentId;
+        this.memberId = memberId;
+        this.title = title;
+        this.lodgingType = lodgingType;
+        this.tel = tel;
+        this.zipcode = zipcode;
+        this.addr = addr;
+        this.checkinTime = checkinTime;
+        this.checkoutTime = checkoutTime;
+        this.roomCount = roomCount;
+        this.roomType = roomType;
+        this.parking = parking;
+        this.subFacility = subFacility;
+        this.overview = overview;
+        this.firstImage = firstImage;
+        this.firstImage2 = firstImage2;
+        this.mapX = mapX;
+        this.mapY = mapY;
+        this.basePrice = (basePrice != null) ? basePrice : BigDecimal.ZERO;
+        this.remainingRooms = (remainingRooms != null) ? remainingRooms : 0L;
+    }
+
+    // 💡 [신규 추가] JPQL 매핑용 (Integer basePrice + Long remainingRooms)
+    public StayResponseDto(String contentId, Long memberId, String title, String lodgingType,
+                           String tel, String zipcode, String addr, String checkinTime,
+                           String checkoutTime, String roomCount, String roomType,
+                           String parking, String subFacility, String overview,
+                           String firstImage, String firstImage2, String mapX, String mapY,
+                           Integer basePrice, Long remainingRooms) {
+        this(contentId, memberId, title, lodgingType, tel, zipcode, addr, checkinTime,
+                checkoutTime, roomCount, roomType, parking, subFacility, overview,
+                firstImage, firstImage2, mapX, mapY,
+                basePrice != null ? BigDecimal.valueOf(basePrice) : BigDecimal.ZERO,
+                remainingRooms != null ? remainingRooms : 0L);
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/repository/AccommodationRepository.java <==
+package org.example.hotelbooking.domain.accommodation.repository;
+
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
+import org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDate;
+import java.util.List;
+
+public interface AccommodationRepository extends JpaRepository<Accommodation, String>, AccommodationRepositoryCustom {
+
+    @Query("SELECT new org.example.hotelbooking.domain.accommodation.dto.StayResponseDto(" +
+            "a.contentId, a.host.memberId, a.title, a.lodgingType, a.tel, a.zipcode, a.addr, " +
+            "a.checkinTime, a.checkoutTime, a.roomCount, a.roomType, a.parking, a.subFacility, " +
+            "a.overview, a.firstImage, a.firstImage2, a.mapX, a.mapY, " +
+            "COALESCE((SELECT MIN(r.pricePerNight) FROM Room r WHERE r.accommodation = a), 0), " +
+            "COALESCE((SELECT SUM(ri.availableCount) FROM RoomInventory ri JOIN ri.room r " +
+            "          WHERE r.accommodation = a " +
+            "            AND ri.inventoryDate = :checkIn " +
+            "            AND (:guests IS NULL OR :guests <= 0 OR CAST(COALESCE(r.roomMaxCount, '0') AS integer) >= :guests)), 0L)) " +
+            "FROM Accommodation a " +
+            "WHERE a.approvalStatus = org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus.APPROVED " +
+            "  AND (:region IS NULL OR :region = '' OR :region = '전체' OR a.addr LIKE %:region%) " +
+            "  AND (:type IS NULL OR :type = '' OR :type = '전체' OR a.lodgingType LIKE %:type%) " +
+            "  AND (:query IS NULL OR :query = '' OR a.title LIKE %:query% OR a.addr LIKE %:query%) " +
+            "  AND (:guests IS NULL OR :guests <= 0 OR EXISTS (" +
+            "       SELECT 1 FROM Room r " +
+            "       WHERE r.accommodation = a " +
+            "         AND CAST(COALESCE(r.roomMaxCount, '0') AS integer) >= :guests)) " +
+            // 💡 날짜가 없는 전체 조회일 때는 통과, 날짜가 들어왔을 때는 :stayDays > 0 조건과 일자별 잔여 재고를 엄격히 검증
+            "  AND (:stayDays = 0L OR EXISTS (" +
+            "           SELECT 1 FROM Room r " +
+            "           WHERE r.accommodation = a " +
+            "             AND (SELECT COUNT(ri) FROM RoomInventory ri " +
+            "                  WHERE ri.room = r " +
+            "                    AND ri.inventoryDate >= :checkIn " +
+            "                    AND ri.inventoryDate < :checkOut " +
+            "                    AND ri.availableCount > 0) = :stayDays)) " +
+            "ORDER BY a.contentId DESC")
+    List<StayResponseDto> searchStays(
+            @Param("region") String region,
+            @Param("type") String type,
+            @Param("query") String query,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut,
+            @Param("stayDays") Long stayDays,
+            @Param("guests") Integer guests // 💡 [추가]
+    );
+
+    // 숙소 생성시 시퀀스 생성
+    @Query(value = "SELECT SEQ_HOST_ACCOM.NEXTVAL FROM DUAL", nativeQuery = true)
+    Long getNextHostAccomSeq();
+
+    // 호스트가 등록한 숙소 찾아오는 jpa쿼리
+    List<Accommodation> findByHost_Email(String email);
+
+    // 숙소 관리자의 숙소 보유 여부 확인
+    boolean existsByHost_MemberIdAndApprovalStatus(Long memberId, org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus approvalStatus);
+
+    // 특정 호스트의 반려된 숙소 목록 조회 (반려 알림용)
+    List<Accommodation> findByHost_MemberIdAndApprovalStatus(Long memberId, AccommodationStatus approvalStatus);
+
+    // 총괄 관리자용: 승인 대기(PENDING) 상태 숙소 목록 조회 (심사 알림용)
+    List<Accommodation> findByApprovalStatusOrderByCreatedAtDesc(AccommodationStatus approvalStatus);
+
+    // pending 상태인 숙소 목록 가져오는 메서드
+    List<Accommodation> findByApprovalStatus(AccommodationStatus approvalStatus);
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/repository/AccommodationRepositoryImpl.java <==
+package org.example.hotelbooking.domain.accommodation.repository;
+
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+// QAccommodation 임포트 (빨간 줄 뜨면 Build -> Build Project 한 번 눌러주세요)
+import static org.example.hotelbooking.domain.accommodation.entity.QAccommodation.accommodation;
+
+@Repository
+@RequiredArgsConstructor
+public class AccommodationRepositoryImpl implements AccommodationRepositoryCustom {
+
+    private final JPAQueryFactory queryFactory;
+
+
+    @Override
+    public List<Accommodation> findAccommodationsInMap(String minX, String maxX, String minY, String maxY) {
+        return queryFactory
+                .selectFrom(accommodation)
+                .where(
+                        accommodation.approvalStatus.eq(AccommodationStatus.APPROVED),
+                        accommodation.mapX.between(minX, maxX),
+                        accommodation.mapY.between(minY, maxY)
+                )
+                .fetch();
+
+
+    }
+
+
+
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/repository/AccommodationRepositoryCustom.java <==
+package org.example.hotelbooking.domain.accommodation.repository;
+
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import java.util.List;
+
+public interface AccommodationRepositoryCustom {
+    // 화면의 남서쪽(min)과 북동쪽(max) 좌표를 받아 그 안의 '승인된' 숙소만 검색
+    List<Accommodation> findAccommodationsInMap(String minX, String maxX, String minY, String maxY);
+}
+
+==> src/main/java/org/example/hotelbooking/domain/accommodation/entity/AccommodationStatus.java <==
+package org.example.hotelbooking.domain.accommodation.entity;
+// 숙소 상태 enum 추가
+public enum AccommodationStatus {
+    PENDING,  // 승인 대기 (진행중)
+    APPROVED, // 승인 완료 (홈페이지 노출)
+    REJECTED  // 반려
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/entity/Accommodation.java <==
+package org.example.hotelbooking.domain.accommodation.entity;
+
+import org.example.hotelbooking.domain.member.entity.Member;
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "ACCOMMODATION")
+public class Accommodation {
+
+    @Id
+    @Column(name = "CONTENT_ID", length = 20)
+    private String contentId;
+
+    @Column(nullable = false, length = 200)
+    private String title;
+
+    @Column(name = "LODGING_TYPE", length = 50)
+    private String lodgingType;
+
+    @Column(length = 100)
+    private String tel;
+
+    @Column(length = 10)
+    private String zipcode;
+
+    @Column(length = 300)
+    private String addr;
+
+    @Column(name = "CHECKIN_TIME", length = 100)
+    private String checkinTime;
+
+    @Column(name = "CHECKOUT_TIME", length = 100)
+    private String checkoutTime;
+
+    @Column(name = "ROOM_COUNT", length = 50)
+    private String roomCount;
+
+    @Column(name = "ROOM_TYPE", length = 200)
+    private String roomType;
+
+    @Column(length = 300)
+    private String parking;
+
+    @Column(name = "SUB_FACILITY", length = 1000)
+    private String subFacility;
+
+    @Lob
+    private String overview;
+
+    @Column(name = "FIRST_IMAGE", length = 1000)
+    private String firstImage;
+
+    @Column(name = "FIRST_IMAGE2", length = 1000)
+    private String firstImage2;
+
+    @Column(name = "MAP_X", length = 50)
+    private String mapX;
+
+    @Column(name = "MAP_Y", length = 50)
+    private String mapY;
+
+    // 기존 APPROVAL_STATUS 컬럼을 Enum(PENDING, APPROVED, REJECTED)으로 매핑
+    @Enumerated(EnumType.STRING)
+    @Column(name = "APPROVAL_STATUS", length = 20, nullable = false)
+    private AccommodationStatus approvalStatus;
+
+    @Column(name = "REJECT_REASON", length = 255)
+    private String rejectReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "MEMBER_ID")
+    private Member host;
+
+    @Column(name = "CREATED_AT", updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        if (this.approvalStatus == null) {
+            this.approvalStatus = AccommodationStatus.PENDING;
+        }
+    }
+
+    // 관리자 승인/반려 편의 메서드
+    public void approve() {
+        this.approvalStatus = AccommodationStatus.APPROVED;
+        this.rejectReason = null;
+    }
+
+    public void reject(String reason) {
+        this.approvalStatus = AccommodationStatus.REJECTED;
+        this.rejectReason = reason;
+    }
+
+    @Builder
+    public Accommodation(String contentId, String title, String lodgingType, String tel, String zipcode,
+                         String addr, String checkinTime, String checkoutTime, String roomCount,
+                         String roomType, String parking, String subFacility, String overview,
+                         String firstImage, String firstImage2, String mapX, String mapY,
+                         Member host, AccommodationStatus approvalStatus, String rejectReason) {
+        this.contentId = contentId;
+        this.title = title;
+        this.lodgingType = lodgingType;
+        this.tel = tel;
+        this.zipcode = zipcode;
+        this.addr = addr;
+        this.checkinTime = checkinTime;
+        this.checkoutTime = checkoutTime;
+        this.roomCount = roomCount;
+        this.roomType = roomType;
+        this.parking = parking;
+        this.subFacility = subFacility;
+        this.overview = overview;
+        this.firstImage = firstImage;
+        this.firstImage2 = firstImage2;
+        this.mapX = mapX;
+        this.mapY = mapY;
+        this.host = host;
+        this.approvalStatus = (approvalStatus != null) ? approvalStatus : AccommodationStatus.PENDING;
+        this.rejectReason = rejectReason;
+    }
+
+    // 💡 호스트의 숙소 정보 수정 편의 메서드 (Accommodation.java 내부에 추가)
+    public void updateDetails(String title, String lodgingType, String tel, String zipcode,
+                              String addr, String checkinTime, String checkoutTime, String roomCount,
+                              String roomType, String parking, String subFacility, String overview,
+                              String firstImage, String firstImage2, String mapX, String mapY) {
+        this.title = title;
+        this.lodgingType = lodgingType;
+        this.tel = tel;
+        this.zipcode = zipcode;
+        this.addr = addr;
+        this.checkinTime = checkinTime;
+        this.checkoutTime = checkoutTime;
+        this.roomCount = roomCount;
+        this.roomType = roomType;
+        this.parking = parking;
+        this.subFacility = subFacility;
+        this.overview = overview;
+        this.firstImage = firstImage;
+        this.firstImage2 = firstImage2;
+        this.mapX = mapX;
+        this.mapY = mapY;
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/controller/AccommodationController.java <==
+package org.example.hotelbooking.domain.accommodation.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.dto.AccommodationDto;
+import org.example.hotelbooking.domain.accommodation.dto.AccommodationResponse;
+import org.example.hotelbooking.domain.accommodation.service.AccommodationService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/accommodations")
+@RequiredArgsConstructor
+public class AccommodationController {
+
+    private final AccommodationService accommodationService;
+
+    @Value("${kakao.map.key:}")
+    private String kakaoMapKey;
+
+    @Value("${openweather.api.key:${VITE_OPENWEATHER_API_KEY:}}")
+    private String openWeatherApiKey;
+
+    // 카카오 지도 JavaScript 키 조회 API
+    @GetMapping("/map-key")
+    public ResponseEntity<Map<String, String>> getKakaoMapKey() {
+        return ResponseEntity.ok(Map.of("mapKey", kakaoMapKey));
+    }
+
+    // OpenWeatherMap API 키 조회 API
+    @GetMapping("/weather-key")
+    public ResponseEntity<Map<String, String>> getWeatherKey() {
+        return ResponseEntity.ok(Map.of("apiKey", openWeatherApiKey));
+    }
+
+    // 기존에 만드신 지도 기반 숙소 조회 API (유지)
+    @GetMapping
+    public ResponseEntity<List<AccommodationResponse>> getMapAccommodations(
+            @RequestParam String minX,
+            @RequestParam String maxX,
+            @RequestParam String minY,
+            @RequestParam String maxY) {
+
+        List<AccommodationResponse> response = accommodationService.getAccommodationsInMap(minX, maxX, minY, maxY);
+        return ResponseEntity.ok(response);
+    }
+
+    // 💡 승인된 숙소 보유 여부 확인 API
+    @GetMapping("/has-approved")
+    public ResponseEntity<Boolean> checkApprovedAccommodation(@AuthenticationPrincipal String email) {
+        if (email == null) {
+            return ResponseEntity.ok(false);
+        }
+        boolean hasApproved = accommodationService.hasApprovedAccommodation(email);
+        return ResponseEntity.ok(hasApproved);
+    }
+
+    // 💡 1. 숙소 신규 등록 API ("/api/v1/accommodations" 및 "/api/v1/accommodations/register" 모두 허용)
+    @PreAuthorize("hasRole('HOST')")
+    @PostMapping({"", "/register"})
+    public ResponseEntity<?> register(
+            @RequestBody AccommodationDto.RegisterRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        if (email == null || "anonymousUser".equals(email)) {
+            return ResponseEntity.status(401).body(Map.of("message", "로그인이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요."));
+        }
+        try {
+            String contentId = accommodationService.register(email, request);
+            return ResponseEntity.ok(contentId);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "숙소 등록 실패: " + e.getMessage()));
+        }
+    }
+
+    // 💡 2. 호스트 내 숙소 상세 목록 조회 API (DB 전체 컬럼 반환)
+    @PreAuthorize("hasRole('HOST')")
+    @GetMapping("/my")
+    public ResponseEntity<List<AccommodationDto.HostDetailResponse>> getMyAccommodations(
+            @AuthenticationPrincipal String email
+    ) {
+        return ResponseEntity.ok(accommodationService.getMyAccommodations(email));
+    }
+
+    // 💡 3. [신규 추가] 호스트 내 숙소 정보 수정 API
+    @PreAuthorize("hasRole('HOST')")
+    @PutMapping("/{contentId}")
+    public ResponseEntity<String> updateMyAccommodation(
+            @PathVariable String contentId,
+            @RequestBody AccommodationDto.UpdateRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        accommodationService.updateMyAccommodation(email, contentId, request);
+        return ResponseEntity.ok("숙소 정보가 성공적으로 수정되었습니다.");
+    }
+
+    // 💡 4. [신규 추가] 호스트 내 숙소 삭제 API (진행 중 예약 없을 때만 허용)
+    @PreAuthorize("hasRole('HOST')")
+    @DeleteMapping("/{contentId}")
+    public ResponseEntity<?> deleteMyAccommodation(
+            @PathVariable String contentId,
+            @AuthenticationPrincipal String email
+    ) {
+        try {
+            accommodationService.deleteMyAccommodation(email, contentId);
+            return ResponseEntity.ok(Map.of("message", "숙소가 정상적으로 삭제되었습니다."));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/controller/AdminAccommodationController.java <==
+package org.example.hotelbooking.domain.accommodation.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.dto.AccommodationDto;
+import org.example.hotelbooking.domain.accommodation.dto.AdminRejectRequest;
+import org.example.hotelbooking.domain.accommodation.service.AccommodationService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/admin/accommodations")
+@PreAuthorize("hasRole('ADMIN')")
+public class AdminAccommodationController {
+
+    private final AccommodationService accommodationService;
+
+    // 1. 대기 중인 숙소 목록 상세 조회
+    @GetMapping("/pending")
+    public ResponseEntity<List<AccommodationDto.HostDetailResponse>> getPendingAccommodations() {
+        return ResponseEntity.ok(accommodationService.getPendingAccommodations());
+    }
+
+    // 2. 숙소 승인
+    @PatchMapping("/{contentId}/approve")
+    public ResponseEntity<String> approveAccommodation(@PathVariable String contentId) {
+        accommodationService.approveAccommodation(contentId);
+        return ResponseEntity.ok("숙소 ID " + contentId + "의 승인이 완료되었습니다.");
+    }
+
+    // 3. 숙소 반려
+    @PatchMapping("/{contentId}/reject")
+    public ResponseEntity<String> rejectAccommodation(
+            @PathVariable String contentId,
+            @RequestBody AdminRejectRequest request
+    ) {
+        accommodationService.rejectAccommodation(contentId, request.getRejectReason());
+        return ResponseEntity.ok("숙소 ID " + contentId + "가 반려 처리되었습니다.");
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/controller/StayController.java <==
+package org.example.hotelbooking.domain.accommodation.controller;
+
+import org.example.hotelbooking.domain.accommodation.dto.StayDetailResponseDto;
+import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
+import org.example.hotelbooking.domain.accommodation.service.StayService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@CrossOrigin(origins = "http://localhost:5173")
+@RestController
+@RequestMapping("/api/v1")
+@RequiredArgsConstructor
+public class StayController {
+
+    private final StayService stayService;
+
+    @GetMapping("/stays")
+    public ResponseEntity<List<StayResponseDto>> getStays(
+            @RequestParam(value = "region", required = false) String region,
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "query", required = false) String query,
+            @RequestParam(value = "checkIn", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkIn,
+            @RequestParam(value = "checkOut", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkOut,
+            @RequestParam(value = "guests", required = false) Integer guests
+    ) {
+        List<StayResponseDto> list = stayService.getStays(region, type, query, checkIn, checkOut, guests);
+        return ResponseEntity.ok(list);
+    }
+
+    // 💡 [수정] checkIn, checkOut 파라미터 수신
+    @GetMapping("/stays/{contentId}")
+    public ResponseEntity<StayDetailResponseDto> getStayDetail(
+            @PathVariable String contentId,
+            @RequestParam(value = "checkIn", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkIn,
+            @RequestParam(value = "checkOut", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkOut
+    ) {
+        return ResponseEntity.ok(stayService.getStayDetail(contentId, checkIn, checkOut));
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/service/StayService.java <==
+package org.example.hotelbooking.domain.accommodation.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.dto.StayDetailResponseDto;
+import org.example.hotelbooking.domain.accommodation.dto.StayResponseDto;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
+import org.example.hotelbooking.domain.room.entity.Room;
+import org.example.hotelbooking.domain.room.entity.RoomImage;
+import org.example.hotelbooking.domain.room.entity.RoomInventory;
+import org.example.hotelbooking.domain.room.repository.RoomImageRepository;
+import org.example.hotelbooking.domain.room.repository.RoomInventoryRepository;
+import org.example.hotelbooking.domain.room.repository.RoomRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class StayService {
+
+    private final AccommodationRepository accommodationRepository;
+    private final RoomRepository roomRepository;
+    private final RoomImageRepository roomImageRepository;
+    private final RoomInventoryRepository roomInventoryRepository; // 💡 재고 조회용 주입
+
+    public List<StayResponseDto> getStays(String region, String type, String query, LocalDate checkIn, LocalDate checkOut, Integer guests) {
+        Long stayDays = 0L;
+
+        if (checkIn != null && checkOut != null && checkOut.isAfter(checkIn)) {
+            stayDays = ChronoUnit.DAYS.between(checkIn, checkOut);
+        } else {
+            checkIn = LocalDate.now();
+            checkOut = LocalDate.now();
+        }
+
+        return accommodationRepository.searchStays(region, type, query, checkIn, checkOut, stayDays, guests);
+    }
+
+    // 💡 [수정] 체크인/체크아웃 날짜를 받아 객실별 잔여 개수 계산
+    public StayDetailResponseDto getStayDetail(String contentId, LocalDate checkIn, LocalDate checkOut) {
+        Accommodation accommodation = accommodationRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("숙소를 찾을 수 없습니다. contentId=" + contentId));
+
+        // 날짜가 지정되지 않았으면 기본 오늘 체크인 ~ 내일 체크아웃(1박) 기준
+        if (checkIn == null) {
+            checkIn = LocalDate.now();
+        }
+        if (checkOut == null || !checkOut.isAfter(checkIn)) {
+            checkOut = checkIn.plusDays(1);
+        }
+
+        long stayDays = ChronoUnit.DAYS.between(checkIn, checkOut);
+
+        List<Room> rooms = roomRepository.findByAccommodation_ContentId(contentId);
+
+        // 해당 숙소의 기간 내 모든 재고 조회 후 roomId별로 그룹핑
+        List<RoomInventory> inventories = roomInventoryRepository.findByContentIdAndDateRange(contentId, checkIn, checkOut);
+        Map<Long, List<RoomInventory>> invByRoomMap = inventories.stream()
+                .collect(Collectors.groupingBy(ri -> ri.getRoom().getRoomId()));
+
+        Map<Long, List<RoomImage>> roomImagesMap = new HashMap<>();
+        Map<Long, Integer> roomAvailableMap = new HashMap<>();
+
+        for (Room room : rooms) {
+            List<RoomImage> images = roomImageRepository.findByRoom_RoomIdOrderByDisplayOrderAsc(room.getRoomId());
+            roomImagesMap.put(room.getRoomId(), images);
+
+            List<RoomInventory> roomInvs = invByRoomMap.getOrDefault(room.getRoomId(), List.of());
+            // 숙박 일수(stayDays)만큼 모든 날짜에 재고 데이터가 있어야 하며, 그중 최소 재고를 잔여 객실 수로 설정
+            if (roomInvs.size() < stayDays) {
+                roomAvailableMap.put(room.getRoomId(), 0);
+            } else {
+                int minAvailable = roomInvs.stream()
+                        .mapToInt(RoomInventory::getAvailableCount)
+                        .min()
+                        .orElse(0);
+                roomAvailableMap.put(room.getRoomId(), Math.max(minAvailable, 0));
+            }
+        }
+
+        return StayDetailResponseDto.of(accommodation, rooms, roomImagesMap, roomAvailableMap);
+    }
+}
+==> src/main/java/org/example/hotelbooking/domain/accommodation/service/AccommodationService.java <==
+package org.example.hotelbooking.domain.accommodation.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.accommodation.dto.AccommodationDto;
+import org.example.hotelbooking.domain.accommodation.dto.AccommodationResponse;
+import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
+import org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus;
+import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
+import org.example.hotelbooking.domain.like.repository.AccomLikeRepository;
+import org.example.hotelbooking.domain.member.entity.Member;
+import org.example.hotelbooking.domain.member.repository.MemberRepository;
+import org.example.hotelbooking.domain.reservation.entity.Reservation;
+import org.example.hotelbooking.domain.reservation.repository.ReservationRepository;
+import org.example.hotelbooking.domain.review.repository.ReviewRepository;
+import org.example.hotelbooking.domain.room.entity.Room;
+import org.example.hotelbooking.domain.room.repository.RoomImageRepository;
+import org.example.hotelbooking.domain.room.repository.RoomInventoryRepository;
+import org.example.hotelbooking.domain.room.repository.RoomRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class AccommodationService {
+
+    private final AccommodationRepository accommodationRepository;
+    private final MemberRepository memberRepository;
+    private final ReservationRepository reservationRepository;
+    private final RoomRepository roomRepository;
+    private final RoomImageRepository roomImageRepository;
+    private final RoomInventoryRepository roomInventoryRepository;
+    private final AccomLikeRepository accomLikeRepository;
+    private final ReviewRepository reviewRepository;
+
+    // 지도 기반 숙소 조회
+    public List<AccommodationResponse> getAccommodationsInMap(String minX, String maxX, String minY, String maxY) {
+        return accommodationRepository.findAccommodationsInMap(minX, maxX, minY, maxY)
+                .stream()
+                .map(AccommodationResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    // 💡 1. 숙소 신규 등록 (이미지 및 좌표 컬럼까지 모두 저장)
+    @Transactional
+    public String register(String email, AccommodationDto.RegisterRequest request) {
+        Member host = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
+
+        String contentId = request.getContentId();
+        if (contentId == null || contentId.isBlank()) {
+            Long seqNumber = accommodationRepository.getNextHostAccomSeq();
+            contentId = String.valueOf(seqNumber);
+        }
+
+        Accommodation accommodation = Accommodation.builder()
+                .contentId(contentId)
+                .title(request.getTitle())
+                .lodgingType(request.getLodgingType())
+                .tel(request.getTel())
+                .zipcode(request.getZipcode())
+                .addr(request.getAddr())
+                .checkinTime(request.getCheckinTime())
+                .checkoutTime(request.getCheckoutTime())
+                .roomCount(request.getRoomCount())
+                .roomType(request.getRoomType())
+                .parking(request.getParking())
+                .subFacility(request.getSubFacility())
+                .overview(request.getOverview())
+                .firstImage(request.getFirstImage())
+                .firstImage2(request.getFirstImage2())
+                .mapX(request.getMapX())
+                .mapY(request.getMapY())
+                .host(host)
+                .approvalStatus(AccommodationStatus.PENDING)
+                .build();
+
+        accommodationRepository.save(accommodation);
+        return accommodation.getContentId();
+    }
+
+    // 💡 2. 호스트 내 숙소 전체 컬럼 조회 (수정 폼 바인딩용)
+    public List<AccommodationDto.HostDetailResponse> getMyAccommodations(String email) {
+        return accommodationRepository.findByHost_Email(email)
+                .stream()
+                .map(AccommodationDto.HostDetailResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    // 💡 3. 호스트 내 숙소 정보 수정 (Dirty Checking으로 DB 업데이트)
+    @Transactional
+    public void updateMyAccommodation(String email, String contentId, AccommodationDto.UpdateRequest request) {
+        Accommodation accommodation = accommodationRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 숙소입니다. id=" + contentId));
+
+        if (accommodation.getHost() == null || !accommodation.getHost().getEmail().equals(email)) {
+            throw new IllegalArgumentException("본인이 등록한 숙소만 수정할 수 있습니다.");
+        }
+
+        accommodation.updateDetails(
+                request.getTitle(),
+                request.getLodgingType(),
+                request.getTel(),
+                request.getZipcode(),
+                request.getAddr(),
+                request.getCheckinTime(),
+                request.getCheckoutTime(),
+                request.getRoomCount(),
+                request.getRoomType(),
+                request.getParking(),
+                request.getSubFacility(),
+                request.getOverview(),
+                request.getFirstImage(),
+                request.getFirstImage2(),
+                request.getMapX(),
+                request.getMapY()
+        );
+    }
+
+    // 💡 4. [신규 추가] 호스트 내 숙소 삭제 (진행 예정인 예약이 없을 때만 허용)
+    @Transactional
+    public void deleteMyAccommodation(String email, String contentId) {
+        Accommodation accommodation = accommodationRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 숙소입니다. id=" + contentId));
+
+        if (accommodation.getHost() == null || !accommodation.getHost().getEmail().equals(email)) {
+            throw new IllegalArgumentException("본인이 등록한 숙소만 삭제할 수 있습니다.");
+        }
+
+        Long hostMemberId = accommodation.getHost().getMemberId();
+        LocalDate today = LocalDate.now();
+
+        // 해당 숙소에 속한 모든 예약 조회
+        List<Reservation> targetReservations = reservationRepository.findReservationsByHostId(hostMemberId)
+                .stream()
+                .filter(r -> contentId.equals(r.getRoom().getAccommodation().getContentId()))
+                .toList();
+
+        // 투숙 예정이거나 현재 투숙 중인(취소되지 않은) 예약이 있는지 확인
+        boolean hasActiveReservation = targetReservations.stream()
+                .anyMatch(r -> !"CANCELED".equals(r.getStatus()) && r.getCheckOutDate().isAfter(today));
+
+        if (hasActiveReservation) {
+            throw new IllegalStateException("해당 숙소에 진행 중이거나 예정된 예약이 존재하여 삭제할 수 없습니다.");
+        }
+
+        // 외래키(FK) 제약조건 충돌 방지를 위해 자식 레코드부터 순서대로 삭제
+        // 1) 리뷰 및 찜(위시리스트) 삭제
+        reviewRepository.deleteByAccommodation_ContentId(contentId);
+        accomLikeRepository.deleteByAccommodation_ContentId(contentId);
+
+        // 2) 과거 완료/취소된 예약 내역 삭제
+        if (!targetReservations.isEmpty()) {
+            reservationRepository.deleteAll(targetReservations);
+        }
+
+        // 3) 숙소에 속한 객실(ROOM)의 이미지·재고·객실 삭제
+        List<Room> rooms = roomRepository.findByAccommodation_ContentId(contentId);
+        for (Room room : rooms) {
+            roomImageRepository.deleteByRoom_RoomId(room.getRoomId());
+            roomInventoryRepository.deleteByRoom_RoomId(room.getRoomId());
+        }
+        if (!rooms.isEmpty()) {
+            roomRepository.deleteAll(rooms);
+        }
+
+        // 4) 최종적으로 숙소(ACCOMMODATION) 삭제
+        accommodationRepository.delete(accommodation);
+    }
+
+    // 호스트의 숙소 보유 여부 확인 (PENDING / APPROVED 등 등록된 숙소가 1개라도 있는지 여부 또는 승인 숙소 여부)
+    public boolean hasApprovedAccommodation(String email) {
+        Member host = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
+
+        return accommodationRepository.existsByHost_MemberIdAndApprovalStatus(host.getMemberId(), AccommodationStatus.APPROVED);
+    }
+
+    // 💡 [총괄관리자용] 승인 대기(PENDING) 숙소 목록 최신순 상세 조회
+    public List<AccommodationDto.HostDetailResponse> getPendingAccommodations() {
+        return accommodationRepository.findByApprovalStatusOrderByCreatedAtDesc(AccommodationStatus.PENDING)
+                .stream()
+                .map(AccommodationDto.HostDetailResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    // [총괄관리자용] 숙소 승인 처리
+    @Transactional
+    public void approveAccommodation(String contentId) {
+        Accommodation accommodation = accommodationRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 숙소입니다. id=" + contentId));
+        accommodation.approve();
+    }
+
+    // [총괄관리자용] 숙소 반려 처리
+    @Transactional
+    public void rejectAccommodation(String contentId, String rejectReason) {
+        if (rejectReason == null || rejectReason.isBlank()) {
+            throw new IllegalArgumentException("반려 사유를 입력해야 합니다.");
+        }
+        Accommodation accommodation = accommodationRepository.findById(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 숙소입니다. id=" + contentId));
+        accommodation.reject(rejectReason);
+    }
+}
+==> src/main/java/org/example/hotelbooking/global/config/QueryDslConfig.java <==
+package org.example.hotelbooking.global.config;
+
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class QueryDslConfig {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    // JPAQueryFactory가 필요하면 이 메서드를 실행해서 가져다 쓰렴!
+    @Bean
+    public JPAQueryFactory jpaQueryFactory() {
+        return new JPAQueryFactory(entityManager);
+    }
+}
+==> src/main/java/org/example/hotelbooking/global/security/SecurityConfig.java <==
+package org.example.hotelbooking.global.security;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
+
+@Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+    private final JwtTokenProvider jwtTokenProvider;
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+                // React(Vite)와 통신하기 위한 CORS 설정
+                .cors(Customizer.withDefaults())
+
+                // REST API이므로 CSRF 보호 비활성화
+                .csrf(csrf -> csrf.disable())
+
+                // JWT를 사용하므로 서버 세션을 사용하지 않음
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
+                // API 접근 권한 설정
+                .authorizeHttpRequests(auth -> auth
+                        // 💡 스프링 부트 기본 에러 페이지 포워딩 시 403 마스킹 방지
+                        .requestMatchers("/error").permitAll()
+
+                        // 로그인 / 회원가입
+                        .requestMatchers("/api/v1/auth/**").permitAll()
+
+                        // 숙소 조회
+                        .requestMatchers("/api/v1/accommodations/**").permitAll()
+
+                        // 숙소 조회 API
+                        .requestMatchers("/api/v1/stays/**").permitAll()
+
+                        // 관광지 조회 api
+                        .requestMatchers("/api/v1/tours/**").permitAll()
+
+                        // 비밀번호 찾기 위한 허용 설정
+                        .requestMatchers("/api/v1/members/password/**").permitAll()
+
+                        // 토스페이먼츠 클라이언트 키 조회 허용
+                        .requestMatchers("/api/v1/payments/client-key").permitAll()
+
+                        // 숙소 리뷰 조회 허용
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/reviews/stays/**").permitAll()
+
+                        // 그 외 요청은 JWT 인증 필요
+                        .anyRequest().authenticated()
+                )
+
+                // JWT 인증 필터 등록
+                .addFilterBefore(
+                        new JwtAuthenticationFilter(jwtTokenProvider),
+                        UsernamePasswordAuthenticationFilter.class
+                );
+
+        return http.build();
+    }
+
+    // 비밀번호 암호화
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    // React 개발 서버 CORS 설정
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOrigins(
+                List.of("http://localhost:5173")
+        );
+
+        configuration.setAllowedMethods(
+                Arrays.asList(
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "DELETE",
+                        "OPTIONS",
+                        "PATCH"
+                )
+        );
+
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
+    }
+
+
+}
+==> src/main/java/org/example/hotelbooking/global/security/JwtAuthenticationFilter.java <==
+package org.example.hotelbooking.global.security;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.Collections;
+
+// 💡 롬복을 써서 JwtTokenProvider를 자동으로 주입받습니다.
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtTokenProvider jwtTokenProvider;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+
+        // 1. 사용자 요청 헤더에서 JWT 토큰을 쓱 뽑아옵니다. (아래 만들어둔 resolveToken 메서드 사용)
+        String token = resolveToken(request);
+
+        // 2. 토큰이 비어있지 않고, 진품(유효기간 안 지남 등)인지 검사합니다.
+        if (token != null && jwtTokenProvider.validateToken(token)) {
+
+            // 3. 진품이라면 토큰 안에 적혀있는 사용자 이메일(Subject)과 역할(Role)을 꺼냅니다.
+            String email = jwtTokenProvider.getUserEmail(token);
+            String role = jwtTokenProvider.getUserRole(token);
+
+            // 4. 꺼낸 정보를 바탕으로 "이 사람은 인증된 사용자입니다" 라는 확인증(Authentication 객체)을 만듭니다.
+            Authentication authentication = new UsernamePasswordAuthenticationToken(
+                    email,
+                    null,
+                    Collections.singletonList(new SimpleGrantedAuthority(role))
+            );
+
+            // 5. 스프링 시큐리티의 핵심 저장소(SecurityContext)에 이 확인증을 예쁘게 보관해 둡니다.
+            //    (이렇게 해두면 나중에 컨트롤러에서 @AuthenticationPrincipal 로 이 사람 정보를 꺼내 쓸 수 있습니다!)
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        }
+
+        // 6. 검사가 끝났으니 다음 필터나 컨트롤러로 무사히 넘겨줍니다.
+        filterChain.doFilter(request, response);
+    }
+
+    // 💡 프론트엔드가 보낸 요청(Header) 주머니에서 "Bearer xxxx.yyyy.zzzz" 형태의 토큰만 쏙 빼내는 기능
+    private String resolveToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        // 토큰이 존재하고, "Bearer "로 시작하면 (7글자)
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7); // "Bearer " 이후의 진짜 토큰 부분만 잘라서 반환
+        }
+        return null; // 토큰이 없으면 null 반환
+    }
+}
+==> src/main/java/org/example/hotelbooking/global/security/JwtTokenProvider.java <==
+package org.example.hotelbooking.global.security;
+
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.security.Key;
+import java.util.Date;
+
+@Slf4j
+@Component
+public class JwtTokenProvider {
+
+    private final Key key;
+    private final long expirationTime;
+
+    // yml 또는 properties 파일의 값을 불러와서 Key 객체로 만듭니다.
+    public JwtTokenProvider(@Value("${jwt.secret}") String secretKey,
+                            @Value("${jwt.expiration}") long expirationTime) {
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        this.key = Keys.hmacShaKeyFor(keyBytes);
+        this.expirationTime = expirationTime;
+    }
+
+    // 💡 1. 토큰 생성 (로그인 성공 시 프론트엔드로 내려줄 출입증)
+    // 프론트엔드에서 로그인 시 실제 닉네임을 띄우기 위해 String name, .claim("name", name) 추가
+    public String createToken(String email, String role, String name) {
+        Date now = new Date();
+        Date validity = new Date(now.getTime() + this.expirationTime);
+
+        return Jwts.builder()
+                .setSubject(email) // 토큰 주인을 이메일로 기록
+                .claim("role", role) // 권한 정보 기록 (예: ROLE_USER)
+                .claim("name", name) // 💡 토큰 claim에 DB name 추가
+                .setIssuedAt(now) // 발행 시간
+                .setExpiration(validity) // 만료 시간
+                .signWith(key, SignatureAlgorithm.HS256) // 암호화 알고리즘
+                .compact();
+    }
+
+    // 💡 2. 토큰 유효성 검증 (API 요청이 올 때마다 진짜 출입증인지 확인)
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
+            return true;
+        } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
+            log.info("잘못된 JWT 서명입니다.");
+        } catch (ExpiredJwtException e) {
+            log.info("만료된 JWT 토큰입니다.");
+        } catch (UnsupportedJwtException e) {
+            log.info("지원되지 않는 JWT 토큰입니다.");
+        } catch (IllegalArgumentException e) {
+            log.info("JWT 토큰이 잘못되었습니다.");
+        }
+        return false;
+
+    }
+    // 💡 3. 토큰을 분해해서 주인의 이메일(Subject)을 꺼내는 기능
+    public String getUserEmail(String token) {
+        return Jwts.parserBuilder().setSigningKey(key).build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
+    }
+
+    // 💡 4. 토큰을 분해해서 주인의 권한(Role)을 꺼내는 기능
+    public String getUserRole(String token) {
+        return Jwts.parserBuilder().setSigningKey(key).build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get("role", String.class);
+    }
+}

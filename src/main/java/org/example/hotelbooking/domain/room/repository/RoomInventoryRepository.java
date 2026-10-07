@@ -2,6 +2,7 @@ package org.example.hotelbooking.domain.room.repository;
 
 import org.example.hotelbooking.domain.room.entity.RoomInventory;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -38,6 +39,13 @@ public interface RoomInventoryRepository extends JpaRepository<RoomInventory, Lo
             @Param("checkOut") LocalDate checkOut
     );
 
-    // 💡 객실 삭제 시 재고 데이터 정리용 (RoomInventoryRepository 내부에 추가)
-    void deleteByRoom_RoomId(Long roomId);
+    // 💡JPQL 벌크 연산 도입: 특정 객실(Room)에 딸린 90일치 재고를 한 방에 삭제!
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM RoomInventory ri WHERE ri.room.roomId = :roomId")
+    void deleteByRoom_RoomIdBulk(@Param("roomId") Long roomId);
+
+    // 💡 특정 숙소(Accommodation)에 딸린 모든 객실의 모든 재고를 통째로 한 방에 삭제!
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM RoomInventory ri WHERE ri.room.accommodation.contentId = :contentId")
+    void deleteAllInventoriesByAccommodationIdBulk(@Param("contentId") String contentId);
 }
