@@ -61,6 +61,7 @@ public class KakaoAuthService {
                     .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                     .name(nickname)
                     .role(userRole)
+                    .status("ACTIVE")
                     .build();
             return memberRepository.save(newMember);
         });

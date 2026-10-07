@@ -31,7 +31,7 @@ public class Member {
     private String businessNo;
 
     // 💡 DB의 STATUS 컬럼 매핑 ('ACTIVE', 'BLOCKED', 'WITHDRAWN', 'BANNED')
-    @Column(name = "STATUS", length = 20)
+    @Column(name = "STATUS", length = 20, nullable = false)
     private String status;
 
     @Column(name = "CREATED_AT", updatable = false)
@@ -40,15 +40,19 @@ public class Member {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        if (this.status == null) {
+            this.status = "ACTIVE";
+        }
     }
 
     @Builder
-    public Member(String email, String password, String name, Role role, String businessNo) {
+    public Member(String email, String password, String name, Role role, String businessNo, String status) {
         this.email = email;
         this.password = password;
         this.name = name;
         this.role = role;
         this.businessNo = businessNo;
+        this.status = (status != null) ? status : "ACTIVE";
     }
 
     public void updateToHost(String businessNo, Role role) {
