@@ -313,13 +313,6 @@ export function HomeNavbar({ isLoggedIn, onLogout, onOpenTourMap }: HomeNavbarPr
                                             <>
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleDummyClick('사이트 관리')}
-                                                    style={dropdownItemStyle}
-                                                >
-                                                    <ShieldAlert size={16} /> 사이트 관리
-                                                </button>
-                                                <button
-                                                    type="button"
                                                     onClick={() => {
                                                         setIsDropdownOpen(false);
                                                         navigate('/admin/partners'); // 💡 파트너 관리 페이지로 이동!

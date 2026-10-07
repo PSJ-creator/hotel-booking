@@ -26,18 +26,20 @@ public class AuthService {
             throw new IllegalArgumentException("이미 가입된 이메일입니다.");
         }
 
-        // 1. 기본 권한(ROLE_USER)을 DB에서 찾아옵니다.
-        // (주의: 오라클 ROLES 테이블에 'ROLE_USER' 데이터가 미리 1줄 들어있어야 합니다!)
-        Role userRole = roleRepository.findByRoleName("ROLE_USER")
-                .orElseThrow(() -> new IllegalArgumentException("시스템 에러: 기본 권한이 존재하지 않습니다."));
+        // 💡 1. 사업자등록번호 유무에 따라 부여할 권한 결정 (호스트 체크 시 ROLE_HOST, 일반 시 ROLE_USER)
+        boolean isHost = request.getBusinessNo() != null && !request.getBusinessNo().trim().isEmpty();
+        String targetRoleName = isHost ? "ROLE_HOST" : "ROLE_USER";
 
-        // 2. 비밀번호를 암호화해서 Member 엔티티를 조립합니다.
+        Role assignedRole = roleRepository.findByRoleName(targetRoleName)
+                .orElseThrow(() -> new IllegalArgumentException("시스템 에러: " + targetRoleName + " 권한이 존재하지 않습니다."));
+
+        // 💡 2. 동적으로 결정된 assignedRole 세팅 및 Member 엔티티 조립
         Member member = Member.builder()
                 .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword())) // 암호화!
+                .password(passwordEncoder.encode(request.getPassword())) // BCrypt 암호화!
                 .name(request.getName())
-                .businessNo(request.getBusinessNo())
-                .role(userRole)
+                .businessNo(isHost ? request.getBusinessNo().trim() : null)
+                .role(assignedRole) // ✅ 호스트 가입 시 ROLE_HOST (ROLE_ID: 2) 할당
                 .status("ACTIVE")
                 .build();
 
