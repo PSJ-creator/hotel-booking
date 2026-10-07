@@ -38,6 +38,7 @@ public class AuthService {
                 .name(request.getName())
                 .businessNo(request.getBusinessNo())
                 .role(userRole)
+                .status("ACTIVE")
                 .build();
 
         // 3. DB에 저장

@@ -25,6 +25,8 @@ public class MailService {
 
     private final JavaMailSender javaMailSender;
     private final TemplateEngine templateEngine; // 💡 Thymeleaf 템플릿 엔진 주입
+    @Value("${app.domain:http://localhost:5173}")
+    private String appDomain;
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -106,8 +108,8 @@ public class MailService {
             context.setVariable("totalPriceFormatted", formattedPrice);
 
             // 💡 Localhost 프론트엔드 바로가기 링크 세팅
-            context.setVariable("myReservationsUrl", "http://localhost:5173/my-reservations");
-            context.setVariable("stayDetailUrl", "http://localhost:5173/stays/" + contentId);
+            context.setVariable("myReservationsUrl", appDomain + "/my-reservations");
+            context.setVariable("stayDetailUrl", appDomain + "/stays/" + contentId);
 
             String htmlContent = templateEngine.process("mail/reservation-confirm", context);
             helper.setText(htmlContent, true);

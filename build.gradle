@@ -63,3 +63,28 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+
+// 실제 리액트(Vite) 프로젝트 폴더 경로로 변경 (WebContent 하위 폴더명 그대로 적용)
+def frontendDir = "$projectDir/WebContent/hoteol-booking-app"
+
+task buildFrontend(type: Exec) {
+    workingDir frontendDir
+    inputs.dir frontendDir
+    group = 'build'
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'npm run build'
+    } else {
+        commandLine 'npm', 'run', 'build'
+    }
+}
+
+task copyFrontend(type: Copy) {
+    dependsOn buildFrontend
+    from "$frontendDir/dist"
+    into layout.buildDirectory.dir("resources/main/static")
+}
+
+processResources {
+    dependsOn copyFrontend
+}
