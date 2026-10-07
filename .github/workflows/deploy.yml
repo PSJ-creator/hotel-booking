@@ -18,13 +18,14 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      # Secret 파일 생성
+      # Secret 파일 생성 단계
       - name: Make application-secret.properties
         run: |
           mkdir -p ./src/main/resources
           cat << 'EOF' > ./src/main/resources/application-secret.properties
           ${{ secrets.SECRET }}
           EOF
+          echo "app.domain=${{ secrets.APP_DOMAIN }}" >> ./src/main/resources/application-secret.properties
 
       # Gradle 빌드
       - name: Grant execute permission for gradlew

@@ -63,3 +63,28 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+
+// 리액트(Vite) 빌드 결과물을 static 폴더로 복사
+def frontendDir = "$projectDir/src/main/frontend" // 리액트 프로젝트 경로에 맞게 확인 필요
+
+task buildFrontend(type: Exec) {
+    workingDir frontendDir
+    inputs.dir frontendDir
+    group = 'build'
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'npm run build'
+    } else {
+        commandLine 'npm', 'run', 'build'
+    }
+}
+
+task copyFrontend(type: Copy) {
+    dependsOn buildFrontend
+    from "$frontendDir/dist"
+    into "$buildDir/resources/main/static"
+}
+
+processResources {
+    dependsOn copyFrontend
+}

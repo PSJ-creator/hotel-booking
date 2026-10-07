@@ -44,7 +44,7 @@ public class AuthController {
 
         // 2. 리액트 프론트엔드로 토큰을 쿼리 스트링에 담아 리다이렉트
         HttpHeaders headers = new HttpHeaders();
-        headers.setLocation(URI.create("http://localhost:5173/oauth/callback?token=" + token));
+        headers.setLocation(URI.create("/oauth/callback?token=" + token));
 
         return new ResponseEntity<>(headers, HttpStatus.FOUND); // 302 리다이렉트
     }
