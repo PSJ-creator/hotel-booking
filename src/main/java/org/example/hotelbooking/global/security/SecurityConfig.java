@@ -28,7 +28,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // React(Vite)와 통신하기 위한 CORS 설정
+                // React 통신을 위한 CORS 설정
                 .cors(Customizer.withDefaults())
 
                 // REST API이므로 CSRF 보호 비활성화
@@ -39,8 +39,24 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                // API 접근 권한 설정
+                // API 및 정적 리소스 접근 권한 설정
                 .authorizeHttpRequests(auth -> auth
+                        // 1. React 정적 리소스 전체 허용 (Vite 빌드 파일 및 루트)
+                        .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/assets/**",
+                                "/vite.svg",
+                                "/*.ico",
+                                "/*.png",
+                                "/*.jpg",
+                                "/*.jpeg",
+                                "/*.svg",
+                                "/*.json",
+                                "/*.js",
+                                "/*.css"
+                        ).permitAll()
+
                         // 💡 스프링 부트 기본 에러 페이지 포워딩 시 403 마스킹 방지
                         .requestMatchers("/error").permitAll()
 
@@ -84,13 +100,17 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // React 개발 서버 CORS 설정
+    // CORS 설정
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
+        // 로컬 개발 환경(Vite) + 배포 서버 IP 주소 허용
         configuration.setAllowedOrigins(
-                List.of("http://localhost:5173")
+                List.of(
+                        "http://localhost:5173",
+                        "http://150.230.7.97:8080"
+                )
         );
 
         configuration.setAllowedMethods(
@@ -115,6 +135,4 @@ public class SecurityConfig {
 
         return source;
     }
-
-
 }
