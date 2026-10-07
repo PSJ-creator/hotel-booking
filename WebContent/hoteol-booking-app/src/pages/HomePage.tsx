@@ -237,7 +237,14 @@ export function HomePage() {
                 </section>
 
                 {/* 5. 관광지 추천 슬라이더 */}
-                <section id="travel" className="section container" style={{ paddingTop: 0 }}>
+                <section
+                    id="travel"
+                    className="section container"
+                    style={{
+                        paddingTop: 0,
+                        scrollMarginTop: '180px' // 💡 상단 고정 헤더와 검색창 높이만큼 스크롤 오프셋 확보
+                    }}
+                >
                     <TourSliderSection
                         tours={homeTours}
                         headerRender={

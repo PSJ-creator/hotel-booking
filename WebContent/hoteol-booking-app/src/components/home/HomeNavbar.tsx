@@ -107,7 +107,7 @@ export function HomeNavbar({ isLoggedIn, onLogout, onOpenTourMap }: HomeNavbarPr
 
                 <nav className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
                     <a href="#destinations" style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
-                        추천 여행지
+                        추천 숙소
                     </a>
                     <button
                         type="button"
@@ -127,8 +127,8 @@ export function HomeNavbar({ isLoggedIn, onLogout, onOpenTourMap }: HomeNavbarPr
                     >
                         관광 지도
                     </button>
-                    <a href="#about" style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
-                        서비스 안내
+                    <a href="#travel" style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+                        추천 관광지
                     </a>
 
                     <WeatherWidget />
