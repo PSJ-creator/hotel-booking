@@ -24,4 +24,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             "WHERE a.host.memberId = :hostId " +
             "ORDER BY r.createdAt DESC")
     List<Reservation> findReservationsByHostId(@Param("hostId") Long hostId);
+
+    // 💡 사이트 전체 누적 결제액 (취소된 예약 제외)
+    @Query("SELECT COALESCE(SUM(r.totalPrice), 0L) FROM Reservation r WHERE r.status = 'COMPLETED'")
+    Long getTotalSiteRevenue();
 }

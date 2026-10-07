@@ -32,6 +32,8 @@ import { HostReviewsPage } from "./pages/host/HostReviewsPage";
 // 7. 총괄 관리자 센터 (admin)
 import { AdminAccommodationsPage } from "./pages/admin/AdminAccommodationsPage";
 
+import { AdminPartnersPage } from "./pages/admin/AdminPartnersPage";
+
 function App() {
     return (
         <BrowserRouter>
@@ -66,6 +68,8 @@ function App() {
 
                 {/* 총괄 관리자 센터 */}
                 <Route path="/admin/accommodations" element={<AdminAccommodationsPage />} />
+                {/* 💡 새로운 파트너 관리 페이지 라우트 추가 */}
+                <Route path="/admin/partners" element={<AdminPartnersPage />} />
             </Routes>
         </BrowserRouter>
     );

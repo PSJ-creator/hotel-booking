@@ -320,7 +320,10 @@ export function HomeNavbar({ isLoggedIn, onLogout, onOpenTourMap }: HomeNavbarPr
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleDummyClick('파트너 관리')}
+                                                    onClick={() => {
+                                                        setIsDropdownOpen(false);
+                                                        navigate('/admin/partners'); // 💡 파트너 관리 페이지로 이동!
+                                                    }}
                                                     style={dropdownItemStyle}
                                                 >
                                                     <Users size={16} /> 파트너 관리
