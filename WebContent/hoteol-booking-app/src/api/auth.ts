@@ -29,7 +29,7 @@ export const requestLogin = async (payload: LoginPayload): Promise<TokenResponse
 };
 
 // 카카오 로그인 인증창 URL
-const KAKAO_CLIENT_ID = '9c6e519edc47e02f6460edd2afd70d35';
+const KAKAO_CLIENT_ID = import.meta.env.VITE_KAKAO_CLIENT_ID;
 const KAKAO_REDIRECT_URI = 'http://localhost:8080/api/v1/auth/kakao/callback';
 
 export const KAKAO_AUTH_URL = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_CLIENT_ID}&redirect_uri=${KAKAO_REDIRECT_URI}&response_type=code&prompt=login`;
