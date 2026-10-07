@@ -20,10 +20,12 @@ public class AuthDto {
 
     @Getter
     public static class TokenResponse {
-        private String token;
+        private String token; // Access Token
+        private String refreshToken;
 
-        public TokenResponse(String token) {
+        public TokenResponse(String token, String refreshToken) {
             this.token = token;
+            this.refreshToken = refreshToken;
         }
     }
 

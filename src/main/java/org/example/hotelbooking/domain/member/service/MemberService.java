@@ -3,6 +3,7 @@ package org.example.hotelbooking.domain.member.service;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbooking.domain.accommodation.entity.Accommodation;
 import org.example.hotelbooking.domain.accommodation.repository.AccommodationRepository;
+import org.example.hotelbooking.domain.member.dto.AuthDto;
 import org.example.hotelbooking.domain.member.dto.MemberDto;
 import org.example.hotelbooking.domain.member.entity.Member;
 import org.example.hotelbooking.domain.member.entity.Role;
@@ -32,6 +33,7 @@ public class MemberService {
     private final StringRedisTemplate redisTemplate;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+
 
     public void sendPasswordResetCode(String email) {
         // 1. 이메일로 회원 정보 조회 (존재 여부 확인)
@@ -110,7 +112,7 @@ public class MemberService {
 
     // 💡 2. 회원정보 수정 (이름, 비밀번호)
     @Transactional
-    public String updateProfile(String email, MemberDto.UpdateRequest request) {
+    public AuthDto.TokenResponse updateProfile(String email, MemberDto.UpdateRequest request) {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
@@ -134,12 +136,18 @@ public class MemberService {
         }
 
         // 변경된 닉네임이 반영된 새 JWT 토큰 발급
-        return jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
+        // 💡 변경된 닉네임이 반영된 새 JWT 액세스/리프레시 토큰 발급 및 Redis 저장
+        String newAccessToken = jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(member.getEmail());
+
+        redisTemplate.opsForValue().set("RT:" + member.getEmail(), newRefreshToken, 7, TimeUnit.DAYS);
+
+        return new AuthDto.TokenResponse(newAccessToken, newRefreshToken);
     }
 
     // 💡 3. 숙소 관리자 탈퇴 (보유 숙소 또는 진행 예정 예약이 있으면 차단!)
     @Transactional
-    public String downgradeHost(String email) {
+    public AuthDto.TokenResponse downgradeHost(String email) {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
@@ -170,7 +178,12 @@ public class MemberService {
 
         member.downgradeToUser(userRole);
 
-        return jwtTokenProvider.createToken(member.getEmail(), userRole.getRoleName(), member.getName());
+        String newAccessToken = jwtTokenProvider.createToken(member.getEmail(), userRole.getRoleName(), member.getName());
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(member.getEmail());
+
+        redisTemplate.opsForValue().set("RT:" + member.getEmail(), newRefreshToken, 7, TimeUnit.DAYS);
+
+        return new AuthDto.TokenResponse(newAccessToken, newRefreshToken);
     }
 
     // 💡 4. 회원 탈퇴 (status -> WITHDRAWN, 이름/이메일 Unknown 처리)

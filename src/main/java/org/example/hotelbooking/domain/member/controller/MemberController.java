@@ -58,18 +58,24 @@ public class MemberController {
     @PutMapping("/me")
     public ResponseEntity<AuthDto.TokenResponse> updateProfile(
             @AuthenticationPrincipal String email,
+            // 💡 1. 서비스 코드와 동일하게 ProfileRequest로 맞춰줍니다.
+            // (만약 MemberDto 안에 있는 클래스라면 MemberDto.ProfileRequest 로 적어주세요)
             @RequestBody MemberDto.UpdateRequest request
     ) {
-        String newToken = memberService.updateProfile(email, request);
-        return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
+        // 💡 2. String 1개가 아니라, 서비스가 주는 토큰 2개 꾸러미를 그대로 받습니다.
+        AuthDto.TokenResponse tokens = memberService.updateProfile(email, request);
+
+        // 💡 3. 새로 포장할 필요 없이 꾸러미(tokens)를 바로 응답으로 넘겨줍니다!
+        return ResponseEntity.ok(tokens);
     }
 
     // 💡 숙소 관리자 탈퇴 (보유 숙소/예약 존재 시 400 에러와 사유 메시지 반환)
     @PatchMapping("/me/downgrade-host")
     public ResponseEntity<?> downgradeHost(@AuthenticationPrincipal String email) {
         try {
-            String newToken = memberService.downgradeHost(email);
-            return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
+            // 💡 여기도 String 하나만 받던 것을 TokenResponse 꾸러미로 받도록 수정!
+            AuthDto.TokenResponse tokens = memberService.downgradeHost(email);
+            return ResponseEntity.ok(tokens);
         } catch (IllegalStateException | IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }

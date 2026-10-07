@@ -109,6 +109,7 @@ export function HomePage() {
 
     const handleLogout = () => {
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         setIsLoggedIn(false);
         alert('로그아웃되었습니다.');
         navigate('/');

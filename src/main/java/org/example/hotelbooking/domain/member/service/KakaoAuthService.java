@@ -3,12 +3,14 @@ package org.example.hotelbooking.domain.member.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.member.dto.AuthDto;
 import org.example.hotelbooking.domain.member.entity.Member;
 import org.example.hotelbooking.domain.member.entity.Role;
 import org.example.hotelbooking.domain.member.repository.MemberRepository;
 import org.example.hotelbooking.domain.member.repository.RoleRepository;
 import org.example.hotelbooking.global.security.JwtTokenProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -21,6 +23,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -36,9 +39,10 @@ public class KakaoAuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final StringRedisTemplate redisTemplate;
 
     @Transactional
-    public String kakaoLogin(String code) {
+    public AuthDto.TokenResponse kakaoLogin(String code) {
         // 1. 카카오 서버로 인가 코드를 보내서 '액세스 토큰'을 받아옵니다.
         String accessToken = getAccessToken(code);
 
@@ -66,8 +70,12 @@ public class KakaoAuthService {
             return memberRepository.save(newMember);
         });
 
-        // 5. 회원가입(또는 로그인)이 완료되었으니, 우리 사이트 전용 JWT 토큰을 발급합니다.
-        return jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
+        // 토큰 2개 생성 및 Redis 저장
+        String newAccessToken = jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(member.getEmail());
+        redisTemplate.opsForValue().set("RT:" + member.getEmail(), newRefreshToken, 7, TimeUnit.DAYS);
+
+        return new AuthDto.TokenResponse(newAccessToken, newRefreshToken);
     }
 
     // --- 카카오 API 통신 메서드 ---

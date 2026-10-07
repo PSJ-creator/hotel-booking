@@ -10,7 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.Map;
 import java.net.URI;
 
 @RestController
@@ -40,13 +40,23 @@ public class AuthController {
     // 💡 수정한 부분: 하드코딩 대신 appDomain을 사용하여 동적으로 리다이렉트!
     @GetMapping("/kakao/callback")
     public ResponseEntity<Void> kakaoCallback(@RequestParam String code) {
-        String token = kakaoAuthService.kakaoLogin(code);
+        AuthDto.TokenResponse tokens = kakaoAuthService.kakaoLogin(code);
 
         HttpHeaders headers = new HttpHeaders();
-        // 절대경로 생성: "http://localhost:5173" (로컬) 또는 "http://150.230.7.97" (배포)
-        headers.setLocation(URI.create(appDomain + "/oauth/callback?token=" + token));
+        headers.setLocation(URI.create(appDomain + "/oauth/callback?token=" + tokens.getToken() + "&refreshToken=" + tokens.getRefreshToken()));
 
         return new ResponseEntity<>(headers, HttpStatus.FOUND);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthDto.TokenResponse> refresh(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refreshToken");
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        AuthDto.TokenResponse newTokens = authService.reissueToken(refreshToken);
+        return ResponseEntity.ok(newTokens);
     }
 
     @PostMapping("/apply-host")
@@ -57,7 +67,8 @@ public class AuthController {
         if (email == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        String newToken = authService.upgradeToHost(email, request.getBusinessNo());
-        return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
+        // 💡 AuthService가 이미 2개가 담긴 TokenResponse를 주니까 그대로 받아서 넘깁니다!
+        AuthDto.TokenResponse tokens = authService.upgradeToHost(email, request.getBusinessNo());
+        return ResponseEntity.ok(tokens);
     }
 }

@@ -14,6 +14,7 @@ export interface LoginPayload {
 
 export interface TokenResponse {
     token: string;
+    refreshToken: string;
 }
 
 // 회원가입

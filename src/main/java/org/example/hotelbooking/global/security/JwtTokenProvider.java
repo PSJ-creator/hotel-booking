@@ -40,7 +40,18 @@ public class JwtTokenProvider {
                 .signWith(key, SignatureAlgorithm.HS256) // 암호화 알고리즘
                 .compact();
     }
+    // 💡수명이 7일 인 Refresh Token 생성
+    public String createRefreshToken(String email) {
+        Date now = new Date();
+        Date validity = new Date(now.getTime() + 604800000L); // 7일
 
+        return Jwts.builder()
+                .setSubject(email)
+                .setIssuedAt(now)
+                .setExpiration(validity)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
     // 💡 2. 토큰 유효성 검증 (API 요청이 올 때마다 진짜 출입증인지 확인)
     public boolean validateToken(String token) {
         try {

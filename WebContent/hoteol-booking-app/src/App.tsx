@@ -33,6 +33,10 @@ import { HostReviewsPage } from "./pages/host/HostReviewsPage";
 import { AdminAccommodationsPage } from "./pages/admin/AdminAccommodationsPage";
 
 import { AdminPartnersPage } from "./pages/admin/AdminPartnersPage";
+import { setupAxiosInterceptors } from './api/axiosInterceptor';
+
+// 💡 2. App 밖에서 한 번만 실행되도록 호출 (이 한 줄로 모든 axios가 감시를 받습니다!)
+setupAxiosInterceptors();
 
 function App() {
     return (
