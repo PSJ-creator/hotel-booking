@@ -122,6 +122,7 @@ public class AccommodationService {
     }
 
     // 💡 4. [신규 추가] 호스트 내 숙소 삭제 (진행 예정인 예약이 없을 때만 허용)
+    // 💡 4. [벌크 연산 튜닝 적용 완료 🚀] 호스트 내 숙소 삭제 (진행 예정인 예약이 없을 때만 허용)
     @Transactional
     public void deleteMyAccommodation(String email, String contentId) {
         Accommodation accommodation = accommodationRepository.findById(contentId)
@@ -134,13 +135,12 @@ public class AccommodationService {
         Long hostMemberId = accommodation.getHost().getMemberId();
         LocalDate today = LocalDate.now();
 
-        // 해당 숙소에 속한 모든 예약 조회
+        // 1. 해당 숙소에 속한 모든 예약 조회 후 투숙 예정 검증
         List<Reservation> targetReservations = reservationRepository.findReservationsByHostId(hostMemberId)
                 .stream()
                 .filter(r -> contentId.equals(r.getRoom().getAccommodation().getContentId()))
                 .toList();
 
-        // 투숙 예정이거나 현재 투숙 중인(취소되지 않은) 예약이 있는지 확인
         boolean hasActiveReservation = targetReservations.stream()
                 .anyMatch(r -> !"CANCELED".equals(r.getStatus()) && r.getCheckOutDate().isAfter(today));
 
@@ -148,27 +148,28 @@ public class AccommodationService {
             throw new IllegalStateException("해당 숙소에 진행 중이거나 예정된 예약이 존재하여 삭제할 수 없습니다.");
         }
 
-        // 외래키(FK) 제약조건 충돌 방지를 위해 자식 레코드부터 순서대로 삭제
-        // 1) 리뷰 및 찜(위시리스트) 삭제
+        // --- 🚀 [성능 최적화: JPQL Bulk 연산을 통한 즉각 삭제 처리] ---
+
+        // 2. 리뷰 및 찜(위시리스트) 일괄 삭제
         reviewRepository.deleteByAccommodation_ContentId(contentId);
         accomLikeRepository.deleteByAccommodation_ContentId(contentId);
 
-        // 2) 과거 완료/취소된 예약 내역 삭제
+        // 3. 과거 완료/취소된 예약 내역 일괄 삭제 (JPA deleteAll 묶음 쿼리 활용)
         if (!targetReservations.isEmpty()) {
-            reservationRepository.deleteAll(targetReservations);
+            reservationRepository.deleteAllInBatch(targetReservations);
         }
 
-        // 3) 숙소에 속한 객실(ROOM)의 이미지·재고·객실 삭제
+        // 4. 🔥 수천 건의 객실 재고(90일 치)와 사진을 단 2개의 쿼리로 한 방에 삭제! (for문 제거)
+        roomInventoryRepository.deleteAllInventoriesByAccommodationIdBulk(contentId);
+        roomImageRepository.deleteAllImagesByAccommodationIdBulk(contentId);
+
+        // 5. 숙소에 딸린 객실 껍데기(Room) 일괄 삭제 (벌크 연산)
         List<Room> rooms = roomRepository.findByAccommodation_ContentId(contentId);
-        for (Room room : rooms) {
-            roomImageRepository.deleteByRoom_RoomId(room.getRoomId());
-            roomInventoryRepository.deleteByRoom_RoomId(room.getRoomId());
-        }
         if (!rooms.isEmpty()) {
-            roomRepository.deleteAll(rooms);
+            roomRepository.deleteAllInBatch(rooms);
         }
 
-        // 4) 최종적으로 숙소(ACCOMMODATION) 삭제
+        // 6. 최종적으로 부모 객체인 숙소(ACCOMMODATION) 삭제
         accommodationRepository.delete(accommodation);
     }
 

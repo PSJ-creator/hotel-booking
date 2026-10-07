@@ -104,7 +104,8 @@ public class RoomService {
 
         // 이미지 목록이 전달된 경우 기존 이미지 교체
         if (request.getImageUrls() != null) {
-            roomImageRepository.deleteByRoom_RoomId(roomId);
+            // 💡 끝에 Bulk 를 붙여서 새 메서드를 호출하도록 변경!
+            roomImageRepository.deleteByRoom_RoomIdBulk(roomId);
             saveRoomImages(room, request.getImageUrls());
         }
     }
@@ -117,8 +118,10 @@ public class RoomService {
 
         validateHostOwnership(email, room.getAccommodation().getContentId());
 
-        roomImageRepository.deleteByRoom_RoomId(roomId);
-        roomInventoryRepository.deleteByRoom_RoomId(roomId);
+        // 🚀 for문이나 낱개 쿼리 없이 Bulk Delete 메서드 호출
+        roomImageRepository.deleteByRoom_RoomIdBulk(roomId);
+        roomInventoryRepository.deleteByRoom_RoomIdBulk(roomId);
+
         roomRepository.delete(room);
     }
 
