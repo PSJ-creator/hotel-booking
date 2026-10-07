@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,6 +18,7 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
+      # Secret 파일 생성
       - name: Make application-secret.properties
         run: |
           mkdir -p ./src/main/resources
@@ -25,8 +26,41 @@ jobs:
           ${{ secrets.SECRET }}
           EOF
 
+      # Gradle 빌드
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
       - name: Build with Gradle
         run: ./gradlew clean build -x test
+
+      # 빌드된 JAR 파일을 오라클 서버로 전송 (SCP)
+      - name: Transfer JAR to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          source: "build/libs/*.jar"
+          target: "/home/ubuntu/app"
+          strip_components: 2
+
+      # 서버 접속 후 기존 앱 종료 및 새 JAR 실행 (SSH)
+      - name: Run Application on Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          script: |
+            # 1. 기존 실행 중인 자바 프로세스 종료
+            CURRENT_PID=$(pgrep -f java || true)
+            if [ -n "$CURRENT_PID" ]; then
+              echo "기존 프로세스 종료: $CURRENT_PID"
+              kill -15 $CURRENT_PID
+              sleep 5
+            fi
+
+            # 2. 새 JAR 실행 (백그라운드 nohup)
+            cd /home/ubuntu/app
+            nohup java -jar *.jar > app.log 2>&1 &
+            echo "애플리케이션 배포 및 실행 완료"
