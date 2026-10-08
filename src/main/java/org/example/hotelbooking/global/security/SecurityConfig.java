@@ -47,6 +47,7 @@ public class SecurityConfig {
                                 "/index.html",
                                 "/assets/**",
                                 "/vite.svg",
+                                "/oauth/callback",
                                 "/*.ico",
                                 "/*.png",
                                 "/*.jpg",
