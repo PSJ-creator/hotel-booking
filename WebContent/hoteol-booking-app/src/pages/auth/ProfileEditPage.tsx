@@ -73,7 +73,8 @@ export function ProfileEditPage() {
         const token = localStorage.getItem('accessToken');
 
         try {
-            const res = await axios.put<{ token: string }>('/api/v1/members/me', {
+            // 💡 1. 타입에 refreshToken 추가
+            const res = await axios.put<{ token: string; refreshToken: string }>('/api/v1/members/me', {
                 name,
                 currentPassword: currentPassword || undefined,
                 newPassword: newPassword || undefined,
@@ -81,7 +82,10 @@ export function ProfileEditPage() {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
+            // 💡 2. 액세스, 리프레시 토큰 모두 저장!
             localStorage.setItem('accessToken', res.data.token);
+            localStorage.setItem('refreshToken', res.data.refreshToken);
+
             alert('회원정보가 성공적으로 수정되었습니다.');
             window.location.reload();
         } catch (err: any) {
@@ -100,11 +104,15 @@ export function ProfileEditPage() {
 
         const token = localStorage.getItem('accessToken');
         try {
-            const res = await axios.patch<{ token: string }>('/api/v1/members/me/downgrade-host', {}, {
+            // 💡 1. 타입에 refreshToken 추가
+            const res = await axios.patch<{ token: string; refreshToken: string }>('/api/v1/members/me/downgrade-host', {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
+            // 💡 2. 액세스, 리프레시 토큰 모두 저장!
             localStorage.setItem('accessToken', res.data.token);
+            localStorage.setItem('refreshToken', res.data.refreshToken);
+
             alert('숙소 관리자 자격이 해지되어 일반 회원으로 전환되었습니다.');
             window.location.href = '/';
         } catch (err: any) {

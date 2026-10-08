@@ -33,6 +33,7 @@ jobs:
           ${{ secrets.SECRET }}
           EOF
           echo "app.domain=${{ secrets.APP_DOMAIN }}" >> ./src/main/resources/application-secret.properties
+          echo "kakao.redirect.uri=http://150.230.7.97:8080/api/v1/auth/kakao/callback" >> ./src/main/resources/application-secret.properties
 
       # 리액트 의존성 설치 (CI 환경 권장: npm ci)
       - name: Install Frontend Dependencies

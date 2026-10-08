@@ -35,6 +35,8 @@ import { AdminAccommodationsPage } from "./pages/admin/AdminAccommodationsPage";
 import { AdminPartnersPage } from "./pages/admin/AdminPartnersPage";
 import { setupAxiosInterceptors } from './api/axiosInterceptor';
 
+import { ChatWidget } from './components/common/ChatWidget';
+
 // 💡 2. App 밖에서 한 번만 실행되도록 호출 (이 한 줄로 모든 axios가 감시를 받습니다!)
 setupAxiosInterceptors();
 
@@ -75,6 +77,7 @@ function App() {
                 {/* 💡 새로운 파트너 관리 페이지 라우트 추가 */}
                 <Route path="/admin/partners" element={<AdminPartnersPage />} />
             </Routes>
+            <ChatWidget />
         </BrowserRouter>
     );
 }
