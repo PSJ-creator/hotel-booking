@@ -40,6 +40,8 @@ import { AdminAccommodationsPage } from "./pages/admin/AdminAccommodationsPage";
 import { AdminPartnersPage } from "./pages/admin/AdminPartnersPage";
 import { setupAxiosInterceptors } from './api/axiosInterceptor';
 
+import { ChatWidget } from './components/common/ChatWidget';
+
 // 💡 2. App 밖에서 한 번만 실행되도록 호출 (이 한 줄로 모든 axios가 감시를 받습니다!)
 setupAxiosInterceptors();
 
@@ -80,6 +82,7 @@ function App() {
                 {/* 💡 새로운 파트너 관리 페이지 라우트 추가 */}
                 <Route path="/admin/partners" element={<AdminPartnersPage />} />
             </Routes>
+            <ChatWidget />
         </BrowserRouter>
     );
 }
@@ -4042,6 +4045,285 @@ export function MyReservationCard({
 
 
 // ==========================================
+// File: src/components/common/ChatWidget.tsx
+// ==========================================
+import React, { useState, useRef, useEffect } from 'react';
+import axios from 'axios';
+import { MessageCircle, X, Send, Bot, User, RefreshCw } from 'lucide-react'; // 💡 RefreshCw(새로고침 아이콘) 추가
+
+interface ChatMessage {
+    sender: 'user' | 'ai';
+    text: string;
+}
+
+export function ChatWidget() {
+    const [isOpen, setIsOpen] = useState(false);
+
+    // 초기 환영 메시지를 상수로 분리
+    const initialMessage: ChatMessage = {
+        sender: 'ai',
+        text: '안녕하세요! AI 야호 입니다. 제주도 여행에 대해 무엇이든 물어보세요! 🌴'
+    };
+
+    const [messages, setMessages] = useState<ChatMessage[]>([initialMessage]);
+    const [inputValue, setInputValue] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const quickReplies = [
+        "🌴 2박 3일 제주 커플 여행 코스 추천해줘",
+        "💳 예약 취소 및 환불 규정이 어떻게 돼?",
+        "🍊 제주도 흑돼지 맛집 알려줘"
+    ];
+
+    useEffect(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages, isOpen]);
+
+    // 💡 새 채팅(초기화) 기능 추가
+    const handleResetChat = () => {
+        if (window.confirm('대화 내용을 지우고 새로운 채팅을 시작하시겠습니까?')) {
+            setMessages([initialMessage]);
+            setInputValue('');
+        }
+    };
+
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!inputValue.trim() || isLoading) return;
+
+        const userText = inputValue.trim();
+        setInputValue('');
+        setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
+        setIsLoading(true);
+
+        try {
+            const res = await axios.post('/api/v1/chat', { message: userText });
+            const aiText = res.data.response;
+            setMessages((prev) => [...prev, { sender: 'ai', text: aiText }]);
+        } catch (error) {
+            setMessages((prev) => [...prev, { sender: 'ai', text: '죄송합니다. 현재 네트워크 오류로 답변을 드릴 수 없습니다.' }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div style={{ position: 'fixed', bottom: '30px', right: '30px', zIndex: 9999 }}>
+            {!isOpen && (
+                <button
+                    onClick={() => setIsOpen(true)}
+                    style={{
+                        width: '60px',
+                        height: '60px',
+                        borderRadius: '50%',
+                        backgroundColor: '#123f4d',
+                        color: '#ffffff',
+                        border: 'none',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'transform 0.2s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                >
+                    <MessageCircle size={28} />
+                </button>
+            )}
+
+            {isOpen && (
+                <div style={{
+                    width: '350px',
+                    height: '520px',
+                    backgroundColor: '#ffffff',
+                    borderRadius: '16px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    border: '1px solid #e2e8f0'
+                }}>
+                    {/* 상단 헤더 */}
+                    <div style={{
+                        padding: '16px 20px',
+                        backgroundColor: '#123f4d',
+                        color: '#ffffff',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Bot size={22} color="#6ee7b7" />
+                            <strong style={{ fontSize: '15px' }}>제주 야호 AI 가이드</strong>
+                        </div>
+
+                        {/* 💡 초기화 버튼 & 닫기 버튼 배치 */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            <button
+                                onClick={handleResetChat}
+                                title="새로운 채팅 시작"
+                                style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', padding: 0, display: 'flex' }}
+                            >
+                                <RefreshCw size={17} />
+                            </button>
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                title="창 닫기"
+                                style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', padding: 0, display: 'flex' }}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 대화 영역 */}
+                    <div style={{
+                        flex: 1,
+                        padding: '20px',
+                        overflowY: 'auto',
+                        backgroundColor: '#f8fafc',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '16px'
+                    }}>
+                        {messages.map((msg, idx) => (
+                            <div key={idx} style={{
+                                display: 'flex',
+                                gap: '10px',
+                                alignItems: 'flex-start',
+                                flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row'
+                            }}>
+                                <div style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '50%',
+                                    backgroundColor: msg.sender === 'user' ? '#e2e8f0' : '#ccfbf1',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    {msg.sender === 'user' ? <User size={16} color="#64748b" /> : <Bot size={16} color="#0f766e" />}
+                                </div>
+                                <div style={{
+                                    maxWidth: '75%',
+                                    padding: '10px 14px',
+                                    borderRadius: '14px',
+                                    backgroundColor: msg.sender === 'user' ? '#123f4d' : '#ffffff',
+                                    color: msg.sender === 'user' ? '#ffffff' : '#1e293b',
+                                    border: msg.sender === 'user' ? 'none' : '1px solid #e2e8f0',
+                                    fontSize: '13px',
+                                    lineHeight: 1.5,
+                                    borderTopLeftRadius: msg.sender === 'ai' ? '2px' : '14px',
+                                    borderTopRightRadius: msg.sender === 'user' ? '2px' : '14px',
+                                    whiteSpace: 'pre-line'
+                                }}>
+                                    {msg.text}
+                                </div>
+                            </div>
+                        ))}
+                        {isLoading && (
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#ccfbf1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Bot size={16} color="#0f766e" />
+                                </div>
+                                <div style={{ padding: '10px 14px', borderRadius: '14px', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', fontSize: '13px', color: '#94a3b8' }}>
+                                    입력중...
+                                </div>
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* 빠른 질문(Quick Reply) 칩 영역 */}
+                    {messages.length < 3 && (
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                            padding: '0 16px 12px 16px',
+                            backgroundColor: '#f8fafc'
+                        }}>
+                            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>이렇게 물어보세요!</span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {quickReplies.map((reply, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setInputValue(reply)}
+                                        style={{
+                                            padding: '6px 12px',
+                                            backgroundColor: '#ffffff',
+                                            border: '1px solid #cbd5e1',
+                                            borderRadius: '16px',
+                                            fontSize: '12px',
+                                            color: '#123f4d',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                                        }}
+                                    >
+                                        {reply}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 입력 영역 */}
+                    <form onSubmit={handleSendMessage} style={{
+                        padding: '12px',
+                        borderTop: '1px solid #e2e8f0',
+                        backgroundColor: '#ffffff',
+                        display: 'flex',
+                        gap: '8px'
+                    }}>
+                        <input
+                            type="text"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            placeholder="제주도 숙소에 대해 물어보세요..."
+                            disabled={isLoading}
+                            style={{
+                                flex: 1,
+                                padding: '10px 14px',
+                                borderRadius: '20px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '13px',
+                                outline: 'none'
+                            }}
+                        />
+                        <button
+                            type="submit"
+                            disabled={!inputValue.trim() || isLoading}
+                            style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '50%',
+                                backgroundColor: inputValue.trim() && !isLoading ? '#123f4d' : '#e2e8f0',
+                                color: '#ffffff',
+                                border: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: inputValue.trim() && !isLoading ? 'pointer' : 'not-allowed'
+                            }}
+                        >
+                            <Send size={16} style={{ marginLeft: '2px' }} />
+                        </button>
+                    </form>
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+// ==========================================
 // File: src/components/common/DetailPhotoGallery.tsx
 // ==========================================
 import { useState, useEffect } from 'react';
@@ -4889,25 +5171,8 @@ export function WeatherWidget() {
 
         const fetchWeather = async () => {
             try {
-                let apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY || '';
-
-                if (!apiKey) {
-                    const keyRes = await fetch('/api/v1/accommodations/weather-key');
-                    if (keyRes.ok) {
-                        const keyData = await keyRes.json();
-                        apiKey = keyData.apiKey;
-                    }
-                }
-
-                if (!apiKey) {
-                    if (isMounted) setLoading(false);
-                    return;
-                }
-
-                // 💡 city: Jeju, units: metric (섭씨), lang: kr (한글 설명)
-                const weatherRes = await fetch(
-                    `https://api.openweathermap.org/data/2.5/weather?q=Jeju&appid=${apiKey}&units=metric&lang=kr`
-                );
+                // 💡 프론트엔드는 API 키나 외부 URL을 알 필요 없이 백엔드만 호출합니다.
+                const weatherRes = await fetch('/api/v1/accommodations/weather');
 
                 if (!weatherRes.ok) {
                     throw new Error('날씨 API 호출 실패');
@@ -4919,7 +5184,7 @@ export function WeatherWidget() {
                     setWeather({
                         temp: Math.round(data.main.temp),
                         description: data.weather[0]?.description || '',
-                        main: data.weather[0]?.main || 'Clouds', // 날씨 대분류
+                        main: data.weather[0]?.main || 'Clouds',
                         iconCode: data.weather[0]?.icon || '01d',
                     });
                 }
@@ -4941,42 +5206,32 @@ export function WeatherWidget() {
         return null;
     }
 
-    // 💡 첨부 화면의 디자인처럼 부드러운 벡터 아이콘으로 매핑
     const renderWeatherIcon = () => {
         const main = weather.main.toLowerCase();
         const iconCode = weather.iconCode;
-        const iconSize = 19; // 1.5배 보기 좋은 크기
+        const iconSize = 19;
 
-        // 1. 맑음
         if (main.includes('clear')) {
             return <Sun size={iconSize} color="#f59e0b" fill="#fef3c7" strokeWidth={2} />;
         }
-        // 2. 구름
         if (main.includes('cloud')) {
-            // 구름 조금 (02d, 02n)
             if (iconCode.startsWith('02')) {
                 return <CloudSun size={iconSize} color="#475569" fill="#e2e8f0" strokeWidth={2} />;
             }
-            // 구름 많음 / 흐림 (03d, 04d 등 - 첨부해주신 Today의 구름 모양!)
             return <Cloud size={iconSize} color="#64748b" fill="#cbd5e1" strokeWidth={2} />;
         }
-        // 3. 비
         if (main.includes('rain')) {
             return <CloudRain size={iconSize} color="#0284c7" fill="#e0f2fe" strokeWidth={2} />;
         }
-        // 4. 이슬비
         if (main.includes('drizzle')) {
             return <CloudDrizzle size={iconSize} color="#38bdf8" strokeWidth={2} />;
         }
-        // 5. 눈
         if (main.includes('snow')) {
             return <CloudSnow size={iconSize} color="#67e8f9" strokeWidth={2} />;
         }
-        // 6. 뇌우
         if (main.includes('thunderstorm')) {
             return <CloudLightning size={iconSize} color="#eab308" strokeWidth={2} />;
         }
-        // 7. 안개 등
         return <CloudFog size={iconSize} color="#94a3b8" strokeWidth={2} />;
     };
 
@@ -5001,12 +5256,9 @@ export function WeatherWidget() {
             }}
         >
             <span style={{ fontSize: '12px', color: '#0f766e', fontWeight: 800 }}>제주</span>
-
-            {/* 💡 구름/날씨 아이콘 */}
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {renderWeatherIcon()}
             </span>
-
             <span style={{ fontSize: '13px', letterSpacing: '-0.3px' }}>{weather.temp}°C</span>
         </div>
     );
@@ -9250,9 +9502,8 @@ export function LoginPage() {
 
         try {
             const data = await requestLogin({ email, password });
-            // JWT 토큰 저장
+            // 💡 accessToken만 저장하고, refreshToken 저장 로직은 삭제합니다.
             localStorage.setItem('accessToken', data.token);
-            localStorage.setItem('refreshToken', data.refreshToken);
             alert('로그인되었습니다!');
             navigate('/');
         } catch (err: unknown) {
@@ -9839,7 +10090,8 @@ export function ProfileEditPage() {
         const token = localStorage.getItem('accessToken');
 
         try {
-            const res = await axios.put<{ token: string }>('/api/v1/members/me', {
+            // 💡 1. 타입에 refreshToken 추가
+            const res = await axios.put<{ token: string; refreshToken: string }>('/api/v1/members/me', {
                 name,
                 currentPassword: currentPassword || undefined,
                 newPassword: newPassword || undefined,
@@ -9847,7 +10099,10 @@ export function ProfileEditPage() {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
+            // 💡 2. 액세스, 리프레시 토큰 모두 저장!
             localStorage.setItem('accessToken', res.data.token);
+            localStorage.setItem('refreshToken', res.data.refreshToken);
+
             alert('회원정보가 성공적으로 수정되었습니다.');
             window.location.reload();
         } catch (err: any) {
@@ -9866,11 +10121,15 @@ export function ProfileEditPage() {
 
         const token = localStorage.getItem('accessToken');
         try {
-            const res = await axios.patch<{ token: string }>('/api/v1/members/me/downgrade-host', {}, {
+            // 💡 1. 타입에 refreshToken 추가
+            const res = await axios.patch<{ token: string; refreshToken: string }>('/api/v1/members/me/downgrade-host', {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
+            // 💡 2. 액세스, 리프레시 토큰 모두 저장!
             localStorage.setItem('accessToken', res.data.token);
+            localStorage.setItem('refreshToken', res.data.refreshToken);
+
             alert('숙소 관리자 자격이 해지되어 일반 회원으로 전환되었습니다.');
             window.location.href = '/';
         } catch (err: any) {
@@ -13473,6 +13732,127 @@ public class RoomService {
 
 
 // ==========================================
+// File: src/main/java/org/example/hotelbooking/domain/chat/controller/ChatController.java
+// ==========================================
+package org.example.hotelbooking.domain.chat.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.example.hotelbooking.domain.chat.service.ChatService;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/chat")
+@RequiredArgsConstructor
+public class ChatController {
+
+    private final ChatService chatService;
+
+    @PostMapping
+    public Map<String, String> chatWithAI(@RequestBody Map<String, String> request) {
+        String userMessage = request.get("message");
+
+        if (userMessage == null || userMessage.trim().isEmpty()) {
+            return Map.of("response", "메시지를 입력해 주세요.");
+        }
+
+        // AI 응답 받아오기
+        String aiResponse = chatService.chat(userMessage);
+
+        return Map.of("response", aiResponse);
+    }
+}
+
+
+// ==========================================
+// File: src/main/java/org/example/hotelbooking/domain/chat/service/ChatService.java
+// ==========================================
+package org.example.hotelbooking.domain.chat.service;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class ChatService {
+
+    @Value("${spring.ai.openai.api-key}")
+    private String apiKey;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    public String chat(String userMessage) {
+        String url = "https://api.openai.com/v1/chat/completions";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(apiKey);
+
+        // 💡 챗봇의 퀄리티를 결정하는 초정밀 시스템 프롬프트 세팅
+        String systemPrompt = """
+                너는 제주도 숙소 예약 플랫폼 '제주 야호'의 수석 AI 가이드 '야호봇'이야. 
+                아래 가이드라인을 엄격하게 지켜서 답변해줘.
+                
+                1. 말투는 항상 밝고 친절하며, 적절한 이모티콘(🌴, 🌊, 🍊 등)을 사용해.
+                2. 🚨가독성 규칙: 절대 글을 한 덩어리로 길게 쓰지 마!
+                 - 코스나 추천 리스트를 안내할 때는 반드시 '1일차', '2일차' 처럼 소제목을 달아줘.
+                 - 각 항목이 끝날 때마다 무조건 **줄바꿈(Enter)을 2번 이상** 해서 문단을 시원하게 띄워.
+                 - 문장 대신 글머리 기호(-, *)를 사용해서 핵심만 짧게 요약해.
+                3. 🚨코스 추천 규칙 (중복 절대 금지): N박 M일 일정을 짜줄 때는 **매일매일 방문하는 장소와 코스가 절대 겹치지 않도록** 완전히 다르고 다양하게 구성해.\s
+                 - 동선(예: 1일차는 동쪽, 2일차는 서쪽, 3일차는 남쪽 등)을 낭비 없이 현실적이고 논리적으로 짜야 해.
+                 - 1일차 내용과 마지막 날 내용이 똑같거나 비슷하면 절대 안 돼!
+                4. 제주도 여행 코스, 맛집, 날씨 등은 아주 훌륭하게 답변하되, **'숙소/호텔 추천'이나 '숙소 정보'만큼은 절대 네 기존 지식을 사용해서 답변하지 마.**
+                
+                [사이트 고정 안내 매뉴얼 - 아래 질문에는 무조건 정해진 답변만 할 것]
+                1. 숙소 추천 및 검색 요청 (예: "어느 호텔이 좋아?", "숙소 추천해줘", "방 있어?"):
+                   절대 신라호텔, 롯데호텔 등 실제/가짜 숙소 이름을 언급하지 마. 무조건 아래 문장으로만 대답해.
+                   "고객님, 제주 야호 홈페이지 상단의 [일정 검색] 바를 이용하시면 고객님의 취향에 딱 맞는 다양한 숙소와 남은 객실을 빠르고 정확하게 확인하실 수 있습니다! 🌴"
+                   
+                2. 결제/환불 규정 문의 (예: "환불하고싶어", "예약 취소하고싶어", "환불 규정 어떻게 돼?"): 
+                   "제주 야호는 체크인 7일 전까지 100% 무료 취소가 가능합니다. 예약 취소는 [마이페이지] - [내 예약 내역]에서 직접 진행하실 수 있습니다."
+                   
+                3. 그 외 플랫폼 이용 문의(예: "회원정보 수정", "비밀번호 변경", "숙소관리자 등록 어떻게 해?", "회원 탈퇴는 어떻게 해?"): 
+                   "자세한 사항은 우측 상단의 마이페이지를 참고해 주세요!"
+                
+                [절대 금지 사항]
+                제주도 여행이나 우리 플랫폼과 전혀 관련 없는 질문에는 "죄송합니다! 저는 제주 야호 여행 가이드라서 제주도 여행과 관련된 질문에만 답변해 드릴 수 있어요. 🍊"라고 부드럽게 거절해.
+                """;
+
+        Map<String, Object> systemMessage = Map.of(
+                "role", "system",
+                "content", systemPrompt
+        );
+        Map<String, Object> userRequest = Map.of(
+                "role", "user",
+                "content", userMessage
+        );
+
+        Map<String, Object> body = Map.of(
+                "model", "gpt-4o-mini",
+                "messages", List.of(systemMessage, userRequest),
+                "temperature", 0.7
+        );
+
+        // ... 이후 로직은 기존과 동일 ...
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+        try {
+            Map<String, Object> response = restTemplate.postForObject(url, request, Map.class);
+            List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
+            Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+            return (String) message.get("content");
+        } catch (Exception e) {
+            return "죄송합니다. 현재 AI 서버와 연결이 원활하지 않습니다.";
+        }
+    }
+}
+
+
+// ==========================================
 // File: src/main/java/org/example/hotelbooking/domain/notification/dto/NotificationDto.java
 // ==========================================
 package org.example.hotelbooking.domain.notification.dto;
@@ -14106,6 +14486,7 @@ public class AdminPartnerController {
 // ==========================================
 package org.example.hotelbooking.domain.member.controller;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbooking.domain.member.dto.AuthDto;
 import org.example.hotelbooking.domain.member.service.AuthService;
@@ -14113,6 +14494,7 @@ import org.example.hotelbooking.domain.member.service.KakaoAuthService;
 import org.springframework.beans.factory.annotation.Value; // 💡 이거 꼭 필요합니다!
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -14138,8 +14520,21 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthDto.TokenResponse> login(@RequestBody AuthDto.LoginRequest request) {
+    public ResponseEntity<AuthDto.TokenResponse> login(@RequestBody AuthDto.LoginRequest request, HttpServletResponse response) {
         AuthDto.TokenResponse tokenResponse = authService.login(request);
+
+        // 💡 Refresh Token을 HttpOnly 쿠키로 생성
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", tokenResponse.getRefreshToken())
+                .httpOnly(true)
+                .secure(false) // 🚨 나중에 HTTPS(도메인) 적용 시 반드시 true로 변경!
+                .path("/")
+                .maxAge(7 * 24 * 60 * 60) // 7일
+                .sameSite("Lax")
+                .build();
+
+        // 헤더에 쿠키 추가
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
         return ResponseEntity.ok(tokenResponse);
     }
 
@@ -14148,17 +14543,31 @@ public class AuthController {
     public ResponseEntity<Void> kakaoCallback(@RequestParam String code) {
         AuthDto.TokenResponse tokens = kakaoAuthService.kakaoLogin(code);
 
+        // 1. Refresh Token을 HttpOnly 쿠키로 생성
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", tokens.getRefreshToken())
+                .httpOnly(true)
+                .secure(false) // 현재 HTTP 상태이므로 false
+                .path("/")
+                .maxAge(7 * 24 * 60 * 60) // 7일
+                .sameSite("Lax")
+                .build();
+
         HttpHeaders headers = new HttpHeaders();
-        headers.setLocation(URI.create(appDomain + "/oauth/callback?token=" + tokens.getToken() + "&refreshToken=" + tokens.getRefreshToken()));
+        // 2. 응답 헤더에 쿠키 세팅
+        headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
+        // 3. 리다이렉트 URL에는 accessToken만 깔끔하게 넘김 (refreshToken 제거)
+        headers.setLocation(URI.create(appDomain + "/oauth/callback?token=" + tokens.getToken()));
 
         return new ResponseEntity<>(headers, HttpStatus.FOUND);
     }
 
+    // 💡 Refresh Token은 이제 Request Body가 아닌 쿠키에서 읽어옵니다.
     @PostMapping("/refresh")
-    public ResponseEntity<AuthDto.TokenResponse> refresh(@RequestBody Map<String, String> request) {
-        String refreshToken = request.get("refreshToken");
+    public ResponseEntity<AuthDto.TokenResponse> refresh(
+            @CookieValue(value = "refreshToken", required = false) String refreshToken) {
+
         if (refreshToken == null || refreshToken.isBlank()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         AuthDto.TokenResponse newTokens = authService.reissueToken(refreshToken);
@@ -14207,9 +14616,13 @@ public class MemberController {
     public ResponseEntity<String> sendResetCode(@RequestBody Map<String, String> request) {
         String email = request.get("email");
 
-        memberService.sendPasswordResetCode(email);
-
-        return ResponseEntity.ok("이메일로 인증 코드가 발송되었습니다.");
+        // 💡 try-catch 블록을 추가하여 예외 발생 시 프론트엔드로 400 에러와 메시지를 전달
+        try {
+            memberService.sendPasswordResetCode(email);
+            return ResponseEntity.ok("이메일로 인증 코드가 발송되었습니다.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
     // 💡 2. 인증 코드 검증 API (프론트엔드에서 코드 입력 후 확인 버튼 누를 때)
     @PostMapping("/password/verify")
@@ -14450,23 +14863,30 @@ public class MemberService {
 
 
     public void sendPasswordResetCode(String email) {
-        // 1. 이메일로 회원 정보 조회 (존재 여부 확인)
+        // 💡 [신규 추가] 1. 이메일 발송 1분 쿨타임(속도 제한) 검증
+        String limitKey = "PWD_RESET_LIMIT:" + email;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(limitKey))) {
+            throw new IllegalArgumentException("요청이 너무 많습니다. 1분 후에 다시 시도해 주세요.");
+        }
+
+        // 2. 기존 로직: 이메일로 회원 정보 조회
         org.example.hotelbooking.domain.member.entity.Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
 
-        // 💡 2. 카카오 이메일 패턴으로 소셜 가입자 판별 및 차단
+        // 3. 기존 로직: 소셜 가입자 판별
         if (email.startsWith("kakao_") && email.endsWith("@hotel.com")) {
             throw new IllegalArgumentException("카카오 소셜 로그인으로 가입된 계정입니다. 카카오 로그인을 이용해 주세요.");
         }
 
-        // 3. 6자리 랜덤 인증 코드 생성 (100000 ~ 999999)
+        // 4. 인증 코드 생성 및 Redis 저장 (기존 3분)
         String code = String.valueOf((int) (Math.random() * 899999) + 100000);
-
-        // 4. Redis에 저장 (키: "PWD_RESET:이메일", 값: 코드, 만료시간: 3분)
         String redisKey = "PWD_RESET:" + email;
         redisTemplate.opsForValue().set(redisKey, code, 3, java.util.concurrent.TimeUnit.MINUTES);
 
-        // 5. 이메일 발송
+        // 💡 [신규 추가] 5. 성공적으로 처리되었으므로 1분(60초) 동안 재요청을 막는 Lock 설정
+        redisTemplate.opsForValue().set(limitKey, "LOCKED", 1, java.util.concurrent.TimeUnit.MINUTES);
+
+        // 6. 이메일 발송
         mailService.sendAuthCode(email, code);
     }
     // 💡 2번 API: 인증 코드만 검증하고 합격 티켓 부여
@@ -14698,6 +15118,16 @@ public class AuthService {
     // 💡 로그인 시 Access + Refresh Token 모두 발급 및 Redis 저장
     @Transactional(readOnly = true)
     public AuthDto.TokenResponse login(AuthDto.LoginRequest request) {
+        // 💡 1. 로그인 실패 횟수 조회
+        String failKey = "LOGIN_FAIL:" + request.getEmail();
+        String failCountStr = redisTemplate.opsForValue().get(failKey);
+        int failCount = failCountStr != null ? Integer.parseInt(failCountStr) : 0;
+
+        // 💡 2. 5회 이상 실패 시 즉시 차단
+        if (failCount >= 5) {
+            throw new IllegalArgumentException("비밀번호 5회 오류로 30분간 로그인이 제한됩니다.");
+        }
+
         Member member = memberRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
 
@@ -14705,15 +15135,26 @@ public class AuthService {
             throw new IllegalArgumentException("이미 탈퇴 처리된 계정입니다.");
         }
 
+        // 💡 3. 비밀번호 불일치 시 카운트 증가
         if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
-            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+            failCount++;
+            redisTemplate.opsForValue().set(failKey, String.valueOf(failCount), 30, TimeUnit.MINUTES);
+
+            if (failCount >= 5) {
+                throw new IllegalArgumentException("비밀번호 5회 오류로 30분간 로그인이 제한됩니다.");
+            } else {
+                throw new IllegalArgumentException("비밀번호가 일치하지 않습니다. (" + failCount + "/5)");
+            }
         }
 
-        // 1. 토큰 2개 발급
+        // 💡 4. 로그인 성공 시 실패 카운트 초기화
+        redisTemplate.delete(failKey);
+
+        // 5. 토큰 2개 발급
         String accessToken = jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getEmail());
 
-        // 2. Redis에 Refresh Token 저장 (Key: "RT:이메일", Value: 토큰값, 유효기간: 7일)
+        // Redis에 Refresh Token 저장
         redisTemplate.opsForValue().set("RT:" + member.getEmail(), refreshToken, 7, TimeUnit.DAYS);
 
         return new AuthDto.TokenResponse(accessToken, refreshToken);
@@ -17192,6 +17633,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -17216,9 +17658,17 @@ public class AccommodationController {
     }
 
     // OpenWeatherMap API 키 조회 API
-    @GetMapping("/weather-key")
-    public ResponseEntity<Map<String, String>> getWeatherKey() {
-        return ResponseEntity.ok(Map.of("apiKey", openWeatherApiKey));
+    @GetMapping("/weather")
+    public ResponseEntity<String> getJejuWeather() {
+        // 1. 백엔드에서 직접 OpenWeather API 주소를 조합 (키를 여기에만 숨김)
+        String url = "https://api.openweathermap.org/data/2.5/weather?q=Jeju&units=metric&lang=kr&appid=" + openWeatherApiKey;
+
+        // 2. RestTemplate으로 백엔드가 대신 날씨 서버에 요청을 보냄
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+
+        // 3. 받아온 순수 날씨 결과 데이터(JSON)만 프론트엔드로 반환
+        return ResponseEntity.ok(response.getBody());
     }
 
     // 기존에 만드신 지도 기반 숙소 조회 API (유지)
@@ -17710,6 +18160,28 @@ public class AccommodationService {
 
 
 // ==========================================
+// File: src/main/java/org/example/hotelbooking/global/config/SpaErrorController.java
+// ==========================================
+package org.example.hotelbooking.global.config;
+
+import org.springframework.boot.webmvc.error.ErrorController;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+public class SpaErrorController implements ErrorController {
+
+    // 💡 스프링 부트가 모르는 주소(404)로 접속하면 모두 여기로 옵니다.
+    @RequestMapping("/error")
+    public String handleError() {
+        // 에러를 띄우는 대신 리액트의 기본 화면인 index.html로 넘깁니다.
+        // 그러면 리액트가 URL을 보고 알아서 알맞은 컴포넌트(KakaoCallback)를 띄워줍니다!
+        return "forward:/index.html";
+    }
+}
+
+
+// ==========================================
 // File: src/main/java/org/example/hotelbooking/global/config/QueryDslConfig.java
 // ==========================================
 package org.example.hotelbooking.global.config;
@@ -17786,6 +18258,7 @@ public class SecurityConfig {
                                 "/index.html",
                                 "/assets/**",
                                 "/vite.svg",
+                                "/oauth/callback",
                                 "/*.ico",
                                 "/*.png",
                                 "/*.jpg",
@@ -18083,6 +18556,9 @@ kakao.map.key=1eb6f2a2617e0c3b3bb7eb7b90331bae
 # 7. 오픈웨더 날씨 api 키
 VITE_OPENWEATHER_API_KEY=b2790844f7a364279402eb7d74297d5d
 
+# 오픈ai api 키
+spring.ai.openai.api-key=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
+
 
 // ==========================================
 // File: src/main/resources/application.properties
@@ -18117,6 +18593,11 @@ spring.mail.port=587
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 
+# 💡 1. secret.properties 파일을 여기서 읽어옵니다.
+spring.config.import=optional:classpath:application-secret.properties
+
+# 💡 2. 모델 설정
+spring.ai.openai.chat.options.model=gpt-4o-mini
 
 
 // ==========================================
@@ -18212,3 +18693,5 @@ task copyFrontend(type: Copy) {
 processResources {
     dependsOn copyFrontend
 }
+
+
