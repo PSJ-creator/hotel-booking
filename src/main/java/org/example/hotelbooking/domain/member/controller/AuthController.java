@@ -57,8 +57,20 @@ public class AuthController {
     public ResponseEntity<Void> kakaoCallback(@RequestParam String code) {
         AuthDto.TokenResponse tokens = kakaoAuthService.kakaoLogin(code);
 
+        // 1. Refresh Token을 HttpOnly 쿠키로 생성
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", tokens.getRefreshToken())
+                .httpOnly(true)
+                .secure(false) // 현재 HTTP 상태이므로 false
+                .path("/")
+                .maxAge(7 * 24 * 60 * 60) // 7일
+                .sameSite("Lax")
+                .build();
+
         HttpHeaders headers = new HttpHeaders();
-        headers.setLocation(URI.create(appDomain + "/oauth/callback?token=" + tokens.getToken() + "&refreshToken=" + tokens.getRefreshToken()));
+        // 2. 응답 헤더에 쿠키 세팅
+        headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
+        // 3. 리다이렉트 URL에는 accessToken만 깔끔하게 넘김 (refreshToken 제거)
+        headers.setLocation(URI.create(appDomain + "/oauth/callback?token=" + tokens.getToken()));
 
         return new ResponseEntity<>(headers, HttpStatus.FOUND);
     }

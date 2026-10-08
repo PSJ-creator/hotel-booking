@@ -34,7 +34,7 @@ public class AccommodationController {
     }
 
     // OpenWeatherMap API 키 조회 API
-    @GetMapping("/weather-key")
+    @GetMapping("/weather")
     public ResponseEntity<String> getJejuWeather() {
         // 1. 백엔드에서 직접 OpenWeather API 주소를 조합 (키를 여기에만 숨김)
         String url = "https://api.openweathermap.org/data/2.5/weather?q=Jeju&units=metric&lang=kr&appid=" + openWeatherApiKey;
