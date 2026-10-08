@@ -39,6 +39,12 @@ jobs:
         working-directory: WebContent/hoteol-booking-app
         run: npm ci || npm install
 
+      # 💡 [추가할 부분] 리액트 빌드용 .env 파일 생성
+      - name: Make React .env file
+        working-directory: WebContent/hoteol-booking-app
+        run: |
+          echo "VITE_KAKAO_CLIENT_ID=${{ secrets.VITE_KAKAO_CLIENT_ID }}" > .env
+
       # Gradle 실행 권한 부여
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
