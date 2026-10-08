@@ -36,23 +36,30 @@ public class MemberService {
 
 
     public void sendPasswordResetCode(String email) {
-        // 1. 이메일로 회원 정보 조회 (존재 여부 확인)
+        // 💡 [신규 추가] 1. 이메일 발송 1분 쿨타임(속도 제한) 검증
+        String limitKey = "PWD_RESET_LIMIT:" + email;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(limitKey))) {
+            throw new IllegalArgumentException("요청이 너무 많습니다. 1분 후에 다시 시도해 주세요.");
+        }
+
+        // 2. 기존 로직: 이메일로 회원 정보 조회
         org.example.hotelbooking.domain.member.entity.Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
 
-        // 💡 2. 카카오 이메일 패턴으로 소셜 가입자 판별 및 차단
+        // 3. 기존 로직: 소셜 가입자 판별
         if (email.startsWith("kakao_") && email.endsWith("@hotel.com")) {
             throw new IllegalArgumentException("카카오 소셜 로그인으로 가입된 계정입니다. 카카오 로그인을 이용해 주세요.");
         }
 
-        // 3. 6자리 랜덤 인증 코드 생성 (100000 ~ 999999)
+        // 4. 인증 코드 생성 및 Redis 저장 (기존 3분)
         String code = String.valueOf((int) (Math.random() * 899999) + 100000);
-
-        // 4. Redis에 저장 (키: "PWD_RESET:이메일", 값: 코드, 만료시간: 3분)
         String redisKey = "PWD_RESET:" + email;
         redisTemplate.opsForValue().set(redisKey, code, 3, java.util.concurrent.TimeUnit.MINUTES);
 
-        // 5. 이메일 발송
+        // 💡 [신규 추가] 5. 성공적으로 처리되었으므로 1분(60초) 동안 재요청을 막는 Lock 설정
+        redisTemplate.opsForValue().set(limitKey, "LOCKED", 1, java.util.concurrent.TimeUnit.MINUTES);
+
+        // 6. 이메일 발송
         mailService.sendAuthCode(email, code);
     }
     // 💡 2번 API: 인증 코드만 검증하고 합격 티켓 부여

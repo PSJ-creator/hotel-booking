@@ -1,5 +1,6 @@
 package org.example.hotelbooking.domain.member.controller;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbooking.domain.member.dto.AuthDto;
 import org.example.hotelbooking.domain.member.service.AuthService;
@@ -7,6 +8,7 @@ import org.example.hotelbooking.domain.member.service.KakaoAuthService;
 import org.springframework.beans.factory.annotation.Value; // 💡 이거 꼭 필요합니다!
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -32,8 +34,21 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthDto.TokenResponse> login(@RequestBody AuthDto.LoginRequest request) {
+    public ResponseEntity<AuthDto.TokenResponse> login(@RequestBody AuthDto.LoginRequest request, HttpServletResponse response) {
         AuthDto.TokenResponse tokenResponse = authService.login(request);
+
+        // 💡 Refresh Token을 HttpOnly 쿠키로 생성
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", tokenResponse.getRefreshToken())
+                .httpOnly(true)
+                .secure(false) // 🚨 나중에 HTTPS(도메인) 적용 시 반드시 true로 변경!
+                .path("/")
+                .maxAge(7 * 24 * 60 * 60) // 7일
+                .sameSite("Lax")
+                .build();
+
+        // 헤더에 쿠키 추가
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
         return ResponseEntity.ok(tokenResponse);
     }
 
@@ -48,11 +63,13 @@ public class AuthController {
         return new ResponseEntity<>(headers, HttpStatus.FOUND);
     }
 
+    // 💡 Refresh Token은 이제 Request Body가 아닌 쿠키에서 읽어옵니다.
     @PostMapping("/refresh")
-    public ResponseEntity<AuthDto.TokenResponse> refresh(@RequestBody Map<String, String> request) {
-        String refreshToken = request.get("refreshToken");
+    public ResponseEntity<AuthDto.TokenResponse> refresh(
+            @CookieValue(value = "refreshToken", required = false) String refreshToken) {
+
         if (refreshToken == null || refreshToken.isBlank()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         AuthDto.TokenResponse newTokens = authService.reissueToken(refreshToken);

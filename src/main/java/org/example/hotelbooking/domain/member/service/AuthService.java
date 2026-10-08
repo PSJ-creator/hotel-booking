@@ -54,6 +54,16 @@ public class AuthService {
     // 💡 로그인 시 Access + Refresh Token 모두 발급 및 Redis 저장
     @Transactional(readOnly = true)
     public AuthDto.TokenResponse login(AuthDto.LoginRequest request) {
+        // 💡 1. 로그인 실패 횟수 조회
+        String failKey = "LOGIN_FAIL:" + request.getEmail();
+        String failCountStr = redisTemplate.opsForValue().get(failKey);
+        int failCount = failCountStr != null ? Integer.parseInt(failCountStr) : 0;
+
+        // 💡 2. 5회 이상 실패 시 즉시 차단
+        if (failCount >= 5) {
+            throw new IllegalArgumentException("비밀번호 5회 오류로 30분간 로그인이 제한됩니다.");
+        }
+
         Member member = memberRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
 
@@ -61,15 +71,26 @@ public class AuthService {
             throw new IllegalArgumentException("이미 탈퇴 처리된 계정입니다.");
         }
 
+        // 💡 3. 비밀번호 불일치 시 카운트 증가
         if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
-            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+            failCount++;
+            redisTemplate.opsForValue().set(failKey, String.valueOf(failCount), 30, TimeUnit.MINUTES);
+
+            if (failCount >= 5) {
+                throw new IllegalArgumentException("비밀번호 5회 오류로 30분간 로그인이 제한됩니다.");
+            } else {
+                throw new IllegalArgumentException("비밀번호가 일치하지 않습니다. (" + failCount + "/5)");
+            }
         }
 
-        // 1. 토큰 2개 발급
+        // 💡 4. 로그인 성공 시 실패 카운트 초기화
+        redisTemplate.delete(failKey);
+
+        // 5. 토큰 2개 발급
         String accessToken = jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getEmail());
 
-        // 2. Redis에 Refresh Token 저장 (Key: "RT:이메일", Value: 토큰값, 유효기간: 7일)
+        // Redis에 Refresh Token 저장
         redisTemplate.opsForValue().set("RT:" + member.getEmail(), refreshToken, 7, TimeUnit.DAYS);
 
         return new AuthDto.TokenResponse(accessToken, refreshToken);

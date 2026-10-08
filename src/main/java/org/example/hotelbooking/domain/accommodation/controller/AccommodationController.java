@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -34,8 +35,16 @@ public class AccommodationController {
 
     // OpenWeatherMap API 키 조회 API
     @GetMapping("/weather-key")
-    public ResponseEntity<Map<String, String>> getWeatherKey() {
-        return ResponseEntity.ok(Map.of("apiKey", openWeatherApiKey));
+    public ResponseEntity<String> getJejuWeather() {
+        // 1. 백엔드에서 직접 OpenWeather API 주소를 조합 (키를 여기에만 숨김)
+        String url = "https://api.openweathermap.org/data/2.5/weather?q=Jeju&units=metric&lang=kr&appid=" + openWeatherApiKey;
+
+        // 2. RestTemplate으로 백엔드가 대신 날씨 서버에 요청을 보냄
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+
+        // 3. 받아온 순수 날씨 결과 데이터(JSON)만 프론트엔드로 반환
+        return ResponseEntity.ok(response.getBody());
     }
 
     // 기존에 만드신 지도 기반 숙소 조회 API (유지)

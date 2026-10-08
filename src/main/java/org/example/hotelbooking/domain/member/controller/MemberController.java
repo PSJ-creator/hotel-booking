@@ -22,9 +22,13 @@ public class MemberController {
     public ResponseEntity<String> sendResetCode(@RequestBody Map<String, String> request) {
         String email = request.get("email");
 
-        memberService.sendPasswordResetCode(email);
-
-        return ResponseEntity.ok("이메일로 인증 코드가 발송되었습니다.");
+        // 💡 try-catch 블록을 추가하여 예외 발생 시 프론트엔드로 400 에러와 메시지를 전달
+        try {
+            memberService.sendPasswordResetCode(email);
+            return ResponseEntity.ok("이메일로 인증 코드가 발송되었습니다.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
     // 💡 2. 인증 코드 검증 API (프론트엔드에서 코드 입력 후 확인 버튼 누를 때)
     @PostMapping("/password/verify")
