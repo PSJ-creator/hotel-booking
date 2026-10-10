@@ -11,11 +11,13 @@ import org.example.hotelbooking.domain.room.entity.RoomInventory;
 import org.example.hotelbooking.domain.room.repository.RoomImageRepository;
 import org.example.hotelbooking.domain.room.repository.RoomInventoryRepository;
 import org.example.hotelbooking.domain.room.repository.RoomRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +33,10 @@ public class StayService {
     private final RoomImageRepository roomImageRepository;
     private final RoomInventoryRepository roomInventoryRepository; // 💡 재고 조회용 주입
 
+    @Cacheable(
+            value = "stayListCache",
+            key = "{#region, #type, #query, #checkIn, #checkOut, #guests}"
+    )
     public List<StayResponseDto> getStays(String region, String type, String query, LocalDate checkIn, LocalDate checkOut, Integer guests) {
         Long stayDays = 0L;
 

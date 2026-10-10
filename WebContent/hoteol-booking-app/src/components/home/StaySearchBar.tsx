@@ -58,7 +58,7 @@ export function StaySearchBar({
                 >
                     <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>나에게 맞는 제주를 찾아보세요</span>
                     <strong style={{ fontSize: '17px', letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
-                        어디로 떠나실까요?
+                        어디로 떠나볼까요?
                     </strong>
                 </div>
 
