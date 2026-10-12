@@ -52,12 +52,8 @@ export function HomePage() {
     const [guests, setGuests] = useState(2);
     const [visibleCount, setVisibleCount] = useState(18);
     const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(localStorage.getItem('accessToken')));
-
-    // 지도 모달 상태
     const [modalStays, setModalStays] = useState<Stay[]>([]);
     const [isMapModalOpen, setIsMapModalOpen] = useState(false);
-
-    // 관광지 슬라이더(9개) 및 관광 지도 모달 상태 (뒤로가기 시 유지)
     const [homeTours, setHomeTours] = useState<TourSummary[]>([]);
     const [modalTours, setModalTours] = useState<TourSummary[]>([]);
     const [isTourMapModalOpen, setIsTourMapModalOpen] = useState<boolean>(() => {

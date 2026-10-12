@@ -35,7 +35,7 @@ export function useReservation(apiOnline: boolean) {
     setFeedback('');
     try {
       const booking: Booking = {
-        contentId: selected.contentId, // 수정: contentId 바인딩
+        contentId: selected.contentId,
         checkIn,
         checkOut,
         guests,

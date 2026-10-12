@@ -5,7 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 interface PageHeaderProps {
     title: string;
     onBack?: () => void;
-    rightElement?: React.ReactNode; // 우측 'HOST 파트너 센터' 뱃지나 셀렉트 박스 등
+    rightElement?: React.ReactNode;
     titleSize?: string;
 }
 

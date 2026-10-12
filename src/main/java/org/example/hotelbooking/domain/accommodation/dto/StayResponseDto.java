@@ -25,10 +25,10 @@ public class StayResponseDto {
     private String firstImage2;
     private String mapX;
     private String mapY;
-    private BigDecimal basePrice;   // 객실 최저가
-    private Long remainingRooms;    // 💡 [신규 추가] 잔여 객실 수
+    private BigDecimal basePrice;   
+    private Long remainingRooms;    
 
-    // 기존 생성자 유지 (호환용)
+    
     public StayResponseDto(String contentId, Long memberId, String title, String lodgingType,
                            String tel, String zipcode, String addr, String checkinTime,
                            String checkoutTime, String roomCount, String roomType,
@@ -52,7 +52,7 @@ public class StayResponseDto {
                 basePrice != null ? BigDecimal.valueOf(basePrice) : BigDecimal.ZERO, 0L);
     }
 
-    // 💡 [신규 추가] 잔여 객실 수(remainingRooms) 포함 생성자
+    
     public StayResponseDto(String contentId, Long memberId, String title, String lodgingType,
                            String tel, String zipcode, String addr, String checkinTime,
                            String checkoutTime, String roomCount, String roomType,
@@ -81,7 +81,7 @@ public class StayResponseDto {
         this.remainingRooms = (remainingRooms != null) ? remainingRooms : 0L;
     }
 
-    // 💡 [신규 추가] JPQL 매핑용 (Integer basePrice + Long remainingRooms)
+    
     public StayResponseDto(String contentId, Long memberId, String title, String lodgingType,
                            String tel, String zipcode, String addr, String checkinTime,
                            String checkoutTime, String roomCount, String roomType,

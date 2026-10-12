@@ -80,8 +80,6 @@ export function HostAccommodationPage() {
         window.scrollTo(0, 0);
         fetchMyAccommodationList();
     }, []);
-
-    // 카카오 지도 SDK 로드 (주소 -> 경위도 자동 검색용)
     useEffect(() => {
         const loadKakaoApi = async () => {
             if (document.getElementById('kakao-map-sdk')) return;

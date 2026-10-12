@@ -37,7 +37,7 @@ public class AccommodationService {
     private final AccomLikeRepository accomLikeRepository;
     private final ReviewRepository reviewRepository;
 
-    // 지도 기반 숙소 조회
+    
     public List<AccommodationResponse> getAccommodationsInMap(String minX, String maxX, String minY, String maxY) {
         return accommodationRepository.findAccommodationsInMap(minX, maxX, minY, maxY)
                 .stream()
@@ -45,7 +45,7 @@ public class AccommodationService {
                 .collect(Collectors.toList());
     }
 
-    // 💡 1. 숙소 신규 등록 (이미지 및 좌표 컬럼까지 모두 저장)
+    
     @Transactional
     public String register(String email, AccommodationDto.RegisterRequest request) {
         Member host = memberRepository.findByEmail(email)
@@ -83,7 +83,7 @@ public class AccommodationService {
         return accommodation.getContentId();
     }
 
-    // 💡 2. 호스트 내 숙소 전체 컬럼 조회 (수정 폼 바인딩용)
+    
     public List<AccommodationDto.HostDetailResponse> getMyAccommodations(String email) {
         return accommodationRepository.findByHost_Email(email)
                 .stream()
@@ -91,7 +91,7 @@ public class AccommodationService {
                 .collect(Collectors.toList());
     }
 
-    // 💡 3. 호스트 내 숙소 정보 수정 (Dirty Checking으로 DB 업데이트)
+    
     @Transactional
     public void updateMyAccommodation(String email, String contentId, AccommodationDto.UpdateRequest request) {
         Accommodation accommodation = accommodationRepository.findById(contentId)
@@ -121,7 +121,7 @@ public class AccommodationService {
         );
     }
 
-    // 💡 4. [신규 추가] 호스트 내 숙소 삭제 (진행 예정인 예약이 없을 때만 허용)
+    
     @Transactional
     public void deleteMyAccommodation(String email, String contentId) {
         Accommodation accommodation = accommodationRepository.findById(contentId)
@@ -134,13 +134,13 @@ public class AccommodationService {
         Long hostMemberId = accommodation.getHost().getMemberId();
         LocalDate today = LocalDate.now();
 
-        // 해당 숙소에 속한 모든 예약 조회
+        
         List<Reservation> targetReservations = reservationRepository.findReservationsByHostId(hostMemberId)
                 .stream()
                 .filter(r -> contentId.equals(r.getRoom().getAccommodation().getContentId()))
                 .toList();
 
-        // 투숙 예정이거나 현재 투숙 중인(취소되지 않은) 예약이 있는지 확인
+        
         boolean hasActiveReservation = targetReservations.stream()
                 .anyMatch(r -> !"CANCELED".equals(r.getStatus()) && r.getCheckOutDate().isAfter(today));
 
@@ -148,17 +148,17 @@ public class AccommodationService {
             throw new IllegalStateException("해당 숙소에 진행 중이거나 예정된 예약이 존재하여 삭제할 수 없습니다.");
         }
 
-        // 외래키(FK) 제약조건 충돌 방지를 위해 자식 레코드부터 순서대로 삭제
-        // 1) 리뷰 및 찜(위시리스트) 삭제
+        
+        
         reviewRepository.deleteByAccommodation_ContentId(contentId);
         accomLikeRepository.deleteByAccommodation_ContentId(contentId);
 
-        // 2) 과거 완료/취소된 예약 내역 삭제
+        
         if (!targetReservations.isEmpty()) {
             reservationRepository.deleteAll(targetReservations);
         }
 
-        // 3) 숙소에 속한 객실(ROOM)의 이미지·재고·객실 삭제
+        
         List<Room> rooms = roomRepository.findByAccommodation_ContentId(contentId);
         for (Room room : rooms) {
             roomImageRepository.deleteByRoom_RoomId(room.getRoomId());
@@ -168,11 +168,11 @@ public class AccommodationService {
             roomRepository.deleteAll(rooms);
         }
 
-        // 4) 최종적으로 숙소(ACCOMMODATION) 삭제
+        
         accommodationRepository.delete(accommodation);
     }
 
-    // 호스트의 숙소 보유 여부 확인 (PENDING / APPROVED 등 등록된 숙소가 1개라도 있는지 여부 또는 승인 숙소 여부)
+    
     public boolean hasApprovedAccommodation(String email) {
         Member host = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
@@ -180,7 +180,7 @@ public class AccommodationService {
         return accommodationRepository.existsByHost_MemberIdAndApprovalStatus(host.getMemberId(), AccommodationStatus.APPROVED);
     }
 
-    // 💡 [총괄관리자용] 승인 대기(PENDING) 숙소 목록 최신순 상세 조회
+    
     public List<AccommodationDto.HostDetailResponse> getPendingAccommodations() {
         return accommodationRepository.findByApprovalStatusOrderByCreatedAtDesc(AccommodationStatus.PENDING)
                 .stream()
@@ -188,7 +188,7 @@ public class AccommodationService {
                 .collect(Collectors.toList());
     }
 
-    // [총괄관리자용] 숙소 승인 처리
+    
     @Transactional
     public void approveAccommodation(String contentId) {
         Accommodation accommodation = accommodationRepository.findById(contentId)
@@ -196,7 +196,7 @@ public class AccommodationService {
         accommodation.approve();
     }
 
-    // [총괄관리자용] 숙소 반려 처리
+    
     @Transactional
     public void rejectAccommodation(String contentId, String rejectReason) {
         if (rejectReason == null || rejectReason.isBlank()) {

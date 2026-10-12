@@ -15,8 +15,6 @@ export function TourWishlistPage() {
     const [regionFilter, setRegionFilter] = useState<'ALL' | 'JEJU' | 'SEOGWIPO'>('ALL');
     const [searchKeyword, setSearchKeyword] = useState('');
     const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
-
-    // 뒤로가기로 돌아왔을 때도 찜한 관광지 지도 모달 상태 유지
     const [isMapOpen, setIsMapOpen] = useState<boolean>(() => {
         return sessionStorage.getItem('wishlist_tour_map_open') === 'true';
     });

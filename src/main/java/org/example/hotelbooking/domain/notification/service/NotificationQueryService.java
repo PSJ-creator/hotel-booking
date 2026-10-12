@@ -31,9 +31,9 @@ public class NotificationQueryService {
         List<NotificationDto> list = new ArrayList<>();
         String roleName = member.getRole().getRoleName();
 
-        // 1. 숙소 관리자 (ROLE_HOST) 알림
+        
         if ("ROLE_HOST".equals(roleName)) {
-            // [알림 1] 숙소 등록 반려 내역
+            
             List<Accommodation> rejectedList = accommodationRepository
                     .findByHost_MemberIdAndApprovalStatus(member.getMemberId(), AccommodationStatus.REJECTED);
 
@@ -48,10 +48,10 @@ public class NotificationQueryService {
                         .build());
             }
 
-            // [알림 2] 숙소 예약 신청 알림 (추후 예약 신청 연동용)
+            
             List<Reservation> hostReservations = reservationRepository.findReservationsByHostId(member.getMemberId());
             for (Reservation r : hostReservations) {
-                // 최근 예약 알림 (예시: COMPLETED/RESERVED 상태)
+                
                 list.add(NotificationDto.builder()
                         .id("RES_" + r.getReservationId())
                         .title("새로운 숙소 예약이 접수되었습니다.")
@@ -62,9 +62,9 @@ public class NotificationQueryService {
             }
         }
 
-        // 2. 총괄 관리자 (ROLE_ADMIN) 알림
+        
         if ("ROLE_ADMIN".equals(roleName)) {
-            // [알림 3] 신규 등록되어 심사 대기 중인 숙소 알림
+            
             List<Accommodation> pendingList = accommodationRepository
                     .findByApprovalStatusOrderByCreatedAtDesc(AccommodationStatus.PENDING);
 
@@ -79,7 +79,7 @@ public class NotificationQueryService {
             }
         }
 
-        // 최신 등록 순 정렬
+        
         list.sort((o1, o2) -> {
             if (o1.getCreatedAt() == null || o2.getCreatedAt() == null) return 0;
             return o2.getCreatedAt().compareTo(o1.getCreatedAt());

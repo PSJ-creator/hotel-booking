@@ -19,34 +19,34 @@ public class AuthController {
 
     private final AuthService authService;
 
-    // 기존 AuthController 클래스 안에 필드 주입 추가
+    
     private final KakaoAuthService kakaoAuthService;
 
-    // 일반 회원가입 API
+    
     @PostMapping("/signup")
     public ResponseEntity<String> signup(@RequestBody AuthDto.SignupRequest request) {
         authService.signup(request);
         return ResponseEntity.ok("회원가입이 완료되었습니다.");
     }
 
-    // 일반 로그인 API
+    
     @PostMapping("/login")
     public ResponseEntity<AuthDto.TokenResponse> login(@RequestBody AuthDto.LoginRequest request) {
         AuthDto.TokenResponse tokenResponse = authService.login(request);
         return ResponseEntity.ok(tokenResponse);
     }
-    // 카카오 로그인 시
-    // 카카오 로그인 간 json만 띄워서 기존 AuthController 내부의 kakaoCallback 메서드 교체
+    
+    
     @GetMapping("/kakao/callback")
     public ResponseEntity<Void> kakaoCallback(@RequestParam String code) {
-        // 1. 카카오 로그인 후 JWT 토큰 발급
+        
         String token = kakaoAuthService.kakaoLogin(code);
 
-        // 2. 리액트 프론트엔드로 토큰을 쿼리 스트링에 담아 리다이렉트
+        
         HttpHeaders headers = new HttpHeaders();
         headers.setLocation(URI.create("http://localhost:5173/oauth/callback?token=" + token));
 
-        return new ResponseEntity<>(headers, HttpStatus.FOUND); // 302 리다이렉트
+        return new ResponseEntity<>(headers, HttpStatus.FOUND); 
     }
 
     @PostMapping("/apply-host")

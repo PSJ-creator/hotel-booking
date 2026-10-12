@@ -33,7 +33,7 @@ public class Room {
     @Column(name = "PRICE_PER_NIGHT")
     private Integer pricePerNight;
 
-    // 💡 Room.builder() 사용을 위한 빌더 생성자
+    
     @Builder
     public Room(Accommodation accommodation, String roomTitle, String roomSize,
                 String roomBaseCount, String roomMaxCount, Integer pricePerNight) {
@@ -45,7 +45,7 @@ public class Room {
         this.pricePerNight = pricePerNight;
     }
 
-    // 💡 객실 정보 및 1박 가격 수정 메서드
+    
     public void updateRoom(String roomTitle, String roomSize, String roomBaseCount,
                            String roomMaxCount, Integer pricePerNight) {
         this.roomTitle = roomTitle;

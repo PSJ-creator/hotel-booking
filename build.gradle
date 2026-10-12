@@ -21,7 +21,7 @@ repositories {
 dependencies {
     // 1. 웹 및 API (리액트와 통신할 REST API 구축)
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.boot:spring-boot-starter-validation' // DTO 유효성 검사
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     // 2. 데이터베이스 및 ORM (오라클 클라우드 연동)
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'

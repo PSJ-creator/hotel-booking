@@ -40,8 +40,6 @@ export function WeatherWidget() {
                     if (isMounted) setLoading(false);
                     return;
                 }
-
-                // 💡 city: Jeju, units: metric (섭씨), lang: kr (한글 설명)
                 const weatherRes = await fetch(
                     `https://api.openweathermap.org/data/2.5/weather?q=Jeju&appid=${apiKey}&units=metric&lang=kr`
                 );
@@ -56,7 +54,7 @@ export function WeatherWidget() {
                     setWeather({
                         temp: Math.round(data.main.temp),
                         description: data.weather[0]?.description || '',
-                        main: data.weather[0]?.main || 'Clouds', // 날씨 대분류
+                        main: data.weather[0]?.main || 'Clouds',
                         iconCode: data.weather[0]?.icon || '01d',
                     });
                 }
@@ -77,43 +75,31 @@ export function WeatherWidget() {
     if (loading || !weather) {
         return null;
     }
-
-    // 💡 첨부 화면의 디자인처럼 부드러운 벡터 아이콘으로 매핑
     const renderWeatherIcon = () => {
         const main = weather.main.toLowerCase();
         const iconCode = weather.iconCode;
-        const iconSize = 19; // 1.5배 보기 좋은 크기
-
-        // 1. 맑음
+        const iconSize = 19;
         if (main.includes('clear')) {
             return <Sun size={iconSize} color="#f59e0b" fill="#fef3c7" strokeWidth={2} />;
         }
-        // 2. 구름
         if (main.includes('cloud')) {
-            // 구름 조금 (02d, 02n)
             if (iconCode.startsWith('02')) {
                 return <CloudSun size={iconSize} color="#475569" fill="#e2e8f0" strokeWidth={2} />;
             }
-            // 구름 많음 / 흐림 (03d, 04d 등 - 첨부해주신 Today의 구름 모양!)
             return <Cloud size={iconSize} color="#64748b" fill="#cbd5e1" strokeWidth={2} />;
         }
-        // 3. 비
         if (main.includes('rain')) {
             return <CloudRain size={iconSize} color="#0284c7" fill="#e0f2fe" strokeWidth={2} />;
         }
-        // 4. 이슬비
         if (main.includes('drizzle')) {
             return <CloudDrizzle size={iconSize} color="#38bdf8" strokeWidth={2} />;
         }
-        // 5. 눈
         if (main.includes('snow')) {
             return <CloudSnow size={iconSize} color="#67e8f9" strokeWidth={2} />;
         }
-        // 6. 뇌우
         if (main.includes('thunderstorm')) {
             return <CloudLightning size={iconSize} color="#eab308" strokeWidth={2} />;
         }
-        // 7. 안개 등
         return <CloudFog size={iconSize} color="#94a3b8" strokeWidth={2} />;
     };
 

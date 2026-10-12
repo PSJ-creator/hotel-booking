@@ -2,9 +2,9 @@ package org.example.hotelbooking;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.scheduling.annotation.EnableAsync; // 💡 추가
+import org.springframework.scheduling.annotation.EnableAsync; 
 
-@EnableAsync // 💡 이메일 비동기 발송 활성화
+@EnableAsync 
 @SpringBootApplication
 public class HotelBookingApplication {
 

@@ -10,16 +10,16 @@ import java.util.List;
 
 public interface RoomInventoryRepository extends JpaRepository<RoomInventory, Long> {
 
-    // 특정 객실의 특정 날짜 구간 재고 조회
+    
     @Query("SELECT ri FROM RoomInventory ri WHERE ri.room.roomId = :roomId AND ri.inventoryDate BETWEEN :checkIn AND :checkOut")
     List<RoomInventory> findInventoriesForReservation(
             @Param("roomId") Long roomId,
             @Param("checkIn") LocalDate checkIn,
             @Param("checkOut") LocalDate checkOut
     );
-    // 💡 Fetch Join을 사용해 RoomInventory를 가져올 때 Room 정보도 한 번에(N+1 방지) 긁어옵니다.
+    
     @Query("SELECT ri FROM RoomInventory ri JOIN FETCH ri.room r " +
-            "WHERE r.accommodation.contentId = :contentId " + // ⚠️ Room 엔티티 안의 Accommodation 필드명에 맞게 수정!
+            "WHERE r.accommodation.contentId = :contentId " + 
             "AND ri.inventoryDate = :date " +
             "AND ri.availableCount > 0")
     List<RoomInventory> findAvailableRooms(
@@ -27,7 +27,7 @@ public interface RoomInventoryRepository extends JpaRepository<RoomInventory, Lo
             @Param("date") LocalDate date
     );
 
-    // 특정 숙소(String contentId)의 체크인 ~ 체크아웃 구간 객실별 재고 조회
+    
     @Query("SELECT ri FROM RoomInventory ri " +
             "WHERE ri.room.accommodation.contentId = :contentId " +
             "  AND ri.inventoryDate >= :checkIn " +
@@ -38,6 +38,6 @@ public interface RoomInventoryRepository extends JpaRepository<RoomInventory, Lo
             @Param("checkOut") LocalDate checkOut
     );
 
-    // 💡 객실 삭제 시 재고 데이터 정리용 (RoomInventoryRepository 내부에 추가)
+    
     void deleteByRoom_RoomId(Long roomId);
 }

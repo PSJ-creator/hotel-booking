@@ -9,7 +9,7 @@ export function useStays() {
   const [term, setTerm] = useState('');
   const [appliedCheckIn, setAppliedCheckIn] = useState<string>('');
   const [appliedCheckOut, setAppliedCheckOut] = useState<string>('');
-  const [appliedGuests, setAppliedGuests] = useState<number | undefined>(undefined); // 💡 추가
+  const [appliedGuests, setAppliedGuests] = useState<number | undefined>(undefined);
 
   const [stays, setStays] = useState<Stay[]>([]);
   const [apiOnline, setApiOnline] = useState(false);
@@ -19,7 +19,7 @@ export function useStays() {
     let active = true;
     setLoading(true);
 
-    fetchStays(region, type, term, appliedCheckIn, appliedCheckOut, appliedGuests) // 💡 전달
+    fetchStays(region, type, term, appliedCheckIn, appliedCheckOut, appliedGuests)
         .then(data => {
           if (active) {
             setStays(data);
@@ -41,8 +41,6 @@ export function useStays() {
     setRegion(value);
     document.getElementById('stays')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-
-  // 💡 inDate, outDate와 함께 guestsCount 수신
   const search = (inDate?: string, outDate?: string, guestsCount?: number) => {
     setTerm(query);
     if (inDate !== undefined) setAppliedCheckIn(inDate);

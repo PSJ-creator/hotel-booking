@@ -14,7 +14,7 @@ public class RedissonConfig {
     @Bean
     public RedissonClient redissonClient() {
         Config config = new Config();
-        // 도커로 띄운 로컬 Redis 주소로 연결
+        
         config.useSingleServer().setAddress(REDIS_URL);
 
         return Redisson.create(config);

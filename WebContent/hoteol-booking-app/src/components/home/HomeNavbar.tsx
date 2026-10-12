@@ -32,8 +32,6 @@ export function HomeNavbar({ isLoggedIn, onLogout, onOpenTourMap }: HomeNavbarPr
     const [userRole, setUserRole] = useState('ROLE_USER');
     const [hasApprovedAccommodation, setHasApprovedAccommodation] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
-
-    // 토큰 기반 닉네임 및 권한 파싱
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token && isLoggedIn) {
@@ -60,8 +58,6 @@ export function HomeNavbar({ isLoggedIn, onLogout, onOpenTourMap }: HomeNavbarPr
             }
         }
     }, [isLoggedIn]);
-
-    // 호스트 계정 승인 숙소 보유 여부 체크
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token && isLoggedIn && userRole === 'ROLE_HOST') {
@@ -73,8 +69,6 @@ export function HomeNavbar({ isLoggedIn, onLogout, onOpenTourMap }: HomeNavbarPr
                 .catch(() => setHasApprovedAccommodation(false));
         }
     }, [isLoggedIn, userRole]);
-
-    // 드롭다운 외부 클릭 감지
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {

@@ -2,26 +2,26 @@
  * [테이블 5] ACCOMMODATION + JPA DTO 응답 규격
  */
 export type  Stay= {
-  contentId: string;       // PK, 식별자 (기존 id 대신 사용)
+  contentId: string;
   memberId?: number | null;
-  title: string;           // 숙소명 (기존 name 대신 사용)
-  lodgingType?: string;    // AC01 ~ AC06 코드 또는 숙박 유형
+  title: string;
+  lodgingType?: string;
   tel?: string;
   zipcode?: string;
-  addr?: string;           // 기본 주소 (기존 address 대신 사용)
+  addr?: string;
   checkinTime?: string;
   checkoutTime?: string;
   roomCount?: string;
   roomType?: string;
   parking?: string;
   subFacility?: string;
-  overview?: string;       // 숙소 개요
-  firstImage?: string;     // 대표 이미지 URL
-  firstImage2?: string;    // 서브 썸네일 URL
+  overview?: string;
+  firstImage?: string;
+  firstImage2?: string;
   mapX?: string;
   mapY?: string;
-  basePrice: number;       // 객실 최저가 (원화)
-  remainingRooms?: number; // 잔여 객실 수
+  basePrice: number;
+  remainingRooms?: number;
 };
 
 export type Room = {

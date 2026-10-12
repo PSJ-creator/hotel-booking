@@ -26,19 +26,19 @@ public class AccommodationController {
     @Value("${openweather.api.key:${VITE_OPENWEATHER_API_KEY:}}")
     private String openWeatherApiKey;
 
-    // 카카오 지도 JavaScript 키 조회 API
+    
     @GetMapping("/map-key")
     public ResponseEntity<Map<String, String>> getKakaoMapKey() {
         return ResponseEntity.ok(Map.of("mapKey", kakaoMapKey));
     }
 
-    // OpenWeatherMap API 키 조회 API
+    
     @GetMapping("/weather-key")
     public ResponseEntity<Map<String, String>> getWeatherKey() {
         return ResponseEntity.ok(Map.of("apiKey", openWeatherApiKey));
     }
 
-    // 기존에 만드신 지도 기반 숙소 조회 API (유지)
+    
     @GetMapping
     public ResponseEntity<List<AccommodationResponse>> getMapAccommodations(
             @RequestParam String minX,
@@ -50,7 +50,7 @@ public class AccommodationController {
         return ResponseEntity.ok(response);
     }
 
-    // 💡 승인된 숙소 보유 여부 확인 API
+    
     @GetMapping("/has-approved")
     public ResponseEntity<Boolean> checkApprovedAccommodation(@AuthenticationPrincipal String email) {
         if (email == null) {
@@ -60,7 +60,7 @@ public class AccommodationController {
         return ResponseEntity.ok(hasApproved);
     }
 
-    // 💡 1. 숙소 신규 등록 API ("/api/v1/accommodations" 및 "/api/v1/accommodations/register" 모두 허용)
+    
     @PreAuthorize("hasRole('HOST')")
     @PostMapping({"", "/register"})
     public ResponseEntity<?> register(
@@ -78,7 +78,7 @@ public class AccommodationController {
         }
     }
 
-    // 💡 2. 호스트 내 숙소 상세 목록 조회 API (DB 전체 컬럼 반환)
+    
     @PreAuthorize("hasRole('HOST')")
     @GetMapping("/my")
     public ResponseEntity<List<AccommodationDto.HostDetailResponse>> getMyAccommodations(
@@ -87,7 +87,7 @@ public class AccommodationController {
         return ResponseEntity.ok(accommodationService.getMyAccommodations(email));
     }
 
-    // 💡 3. [신규 추가] 호스트 내 숙소 정보 수정 API
+    
     @PreAuthorize("hasRole('HOST')")
     @PutMapping("/{contentId}")
     public ResponseEntity<String> updateMyAccommodation(
@@ -99,7 +99,7 @@ public class AccommodationController {
         return ResponseEntity.ok("숙소 정보가 성공적으로 수정되었습니다.");
     }
 
-    // 💡 4. [신규 추가] 호스트 내 숙소 삭제 API (진행 중 예약 없을 때만 허용)
+    
     @PreAuthorize("hasRole('HOST')")
     @DeleteMapping("/{contentId}")
     public ResponseEntity<?> deleteMyAccommodation(

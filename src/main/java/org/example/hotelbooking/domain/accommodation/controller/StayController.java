@@ -32,7 +32,7 @@ public class StayController {
         return ResponseEntity.ok(list);
     }
 
-    // 💡 [수정] checkIn, checkOut 파라미터 수신
+    
     @GetMapping("/stays/{contentId}")
     public ResponseEntity<StayDetailResponseDto> getStayDetail(
             @PathVariable String contentId,

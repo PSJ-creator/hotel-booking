@@ -24,14 +24,14 @@ public class TourGeoInitializer {
     public void syncTourCoordinatesToRedis() {
         String key = "tour:geo:locations";
 
-        // 기존에 남아있던 캐시 삭제 (초기화)
+        
         redisTemplate.delete(key);
 
         List<TourAttraction> tours = tourRepository.findAll();
 
         for (TourAttraction tour : tours) {
             try {
-                // 좌표값이 비어있지 않은 데이터만 Redis에 저장
+                
                 if (tour.getMapX() != null && tour.getMapY() != null) {
                     double x = Double.parseDouble(tour.getMapX());
                     double y = Double.parseDouble(tour.getMapY());

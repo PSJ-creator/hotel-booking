@@ -8,10 +8,9 @@ export function KakaoCallback() {
     useEffect(() => {
         const token = searchParams.get('token');
         if (token) {
-            // 발급된 JWT 토큰을 로컬스토리지에 저장
             localStorage.setItem('accessToken', token);
             alert('카카오 로그인에 성공했습니다!');
-            navigate('/'); // 메인 화면으로 이동
+            navigate('/');
         } else {
             alert('로그인에 실패했습니다.');
             navigate('/login');

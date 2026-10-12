@@ -17,7 +17,7 @@ public class RoomManageDto {
         private String roomBaseCount;
         private String roomMaxCount;
         private Integer pricePerNight;
-        private Integer initialStock; // 신규 등록 시 일일 기본 재고 수 (기본 5실)
+        private Integer initialStock; 
         private List<String> imageUrls;
     }
 

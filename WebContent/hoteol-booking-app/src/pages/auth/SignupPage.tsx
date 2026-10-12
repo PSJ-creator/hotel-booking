@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import {useNavigate, Link} from 'react-router-dom';
-import {requestSignup, KAKAO_AUTH_URL} from '../../api/auth.ts'; // KAKAO_AUTH_URL 추가
+import {requestSignup, KAKAO_AUTH_URL} from '../../api/auth.ts';
 import axios from 'axios';
 import {Footer} from "../../components/common/Footer.tsx";
 

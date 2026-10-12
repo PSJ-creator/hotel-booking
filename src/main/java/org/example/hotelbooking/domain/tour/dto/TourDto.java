@@ -9,7 +9,7 @@ import java.util.List;
 
 public class TourDto {
 
-    // 지도 및 목록 표시용 요약 DTO
+    
     @Getter
     @Builder
     public static class SummaryResponse {
@@ -46,7 +46,7 @@ public class TourDto {
         }
     }
 
-    // 상세페이지 조회용 DTO
+    
     @Getter
     @Builder
     public static class DetailResponse {

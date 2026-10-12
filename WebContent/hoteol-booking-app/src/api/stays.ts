@@ -32,8 +32,6 @@ export async function toggleAccommodationLike(contentId: string): Promise<{ like
   if (!response.ok) throw new Error('위시리스트 처리 중 오류가 발생했습니다.');
   return response.json();
 }
-
-// 💡 내 위시리스트 숙소 목록 조회
 export async function fetchMyWishlist(checkIn?: string, checkOut?: string, guests?: number): Promise<Stay[]> {
   const token = localStorage.getItem('accessToken');
   const params = new URLSearchParams();

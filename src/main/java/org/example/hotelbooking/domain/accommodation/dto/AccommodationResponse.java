@@ -15,7 +15,7 @@ public class AccommodationResponse {
     private String lodgingType;
     private String roomType;
 
-    // Entity를 DTO로 변환하는 정적 팩토리 메서드
+    
     public static AccommodationResponse from(Accommodation entity) {
         return AccommodationResponse.builder()
                 .contentId(entity.getContentId())

@@ -13,7 +13,7 @@ interface KakaoStayMapProps {
     level?: number;
     height?: string;
     mode?: 'search' | 'detail';
-    zoomable?: boolean; // 마우스 휠 확대/축소 허용 여부 (기본값: true)
+    zoomable?: boolean;
 }
 
 export function KakaoStayMap({
@@ -24,11 +24,9 @@ export function KakaoStayMap({
                                  zoomable = true
                              }: KakaoStayMapProps) {
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapInstanceRef = useRef<any>(null); // +/- 버튼 제어용 지도 인스턴스 보관
+    const mapInstanceRef = useRef<any>(null);
     const navigate = useNavigate();
     const [isLoaded, setIsLoaded] = useState(false);
-
-    // 1. 카카오 지도 SDK 동적 주입
     useEffect(() => {
         let isMounted = true;
 
@@ -78,8 +76,6 @@ export function KakaoStayMap({
             isMounted = false;
         };
     }, []);
-
-    // 2. 지도 초기화 및 마커 렌더링
     useEffect(() => {
         if (!isLoaded || !window.kakao || !window.kakao.maps) return;
 
@@ -108,11 +104,7 @@ export function KakaoStayMap({
             };
             const map = new window.kakao.maps.Map(mapContainerRef.current, options);
             mapInstanceRef.current = map;
-
-            // 마우스 휠 확대/축소 제어 (false일 때 스크롤 내려도 지도 축척이 변하지 않음)
             map.setZoomable(zoomable);
-
-            // [케이스 A] 객실 상세페이지 전용 뷰 (mode === 'detail') -> detailCard, centerPosition 사용
             if (isDetailPage && validStays.length > 0) {
                 const stay = validStays[0];
                 const marker = new window.kakao.maps.Marker({
@@ -227,8 +219,6 @@ export function KakaoStayMap({
 
                 return;
             }
-
-            // [케이스 B] 검색/홈페이지 지도 모드 (mode === 'search') -> content, position 사용
             const clusterer = new window.kakao.maps.MarkerClusterer({
                 map: map,
                 averageCenter: true,
@@ -324,7 +314,7 @@ export function KakaoStayMap({
                     content: content,
                     position: position,
                     yAnchor: 1.25,
-                    zIndex: 9999, // 다른 숙소 핀/클러스터보다 항상 앞에 표시
+                    zIndex: 9999,
                     clickable: true,
                 });
 
@@ -371,8 +361,6 @@ export function KakaoStayMap({
             }
         });
     }, [isLoaded, stays, level, mode, zoomable, navigate]);
-
-    // 우측 하단 확대(+) / 축소(-) 버튼 핸들러 (휠 잠금 상태에서도 언제든 작동)
     const handleZoomIn = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (mapInstanceRef.current) {

@@ -23,10 +23,10 @@ public class RoomInventory {
     private Room room;
 
     @Column(name = "INVENTORY_DATE", nullable = false)
-    private LocalDate inventoryDate; // 예: 2026-10-01
+    private LocalDate inventoryDate; 
 
     @Column(name = "AVAILABLE_COUNT", nullable = false)
-    private Integer availableCount; // 남은 객실 수
+    private Integer availableCount; 
 
     @Builder
     public RoomInventory(Room room, LocalDate inventoryDate, Integer availableCount) {
@@ -35,14 +35,14 @@ public class RoomInventory {
         this.availableCount = availableCount;
     }
 
-    // 💡 동시성 환경에서 호출될 재고 차감 로직
+    
     public void decreaseCount(int count) {
         if (this.availableCount - count < 0) {
             throw new IllegalArgumentException("해당 날짜의 객실이 모두 예약되었습니다.");
         }
         this.availableCount -= count;
     }
-    // 💡 예약 취소 시 재고 복구 로직
+    
     public void increaseCount(int count) {
         this.availableCount += count;
     }

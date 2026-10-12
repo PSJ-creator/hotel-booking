@@ -28,48 +28,48 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // React(Vite)와 통신하기 위한 CORS 설정
+                
                 .cors(Customizer.withDefaults())
 
-                // REST API이므로 CSRF 보호 비활성화
+                
                 .csrf(csrf -> csrf.disable())
 
-                // JWT를 사용하므로 서버 세션을 사용하지 않음
+                
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                // API 접근 권한 설정
+                
                 .authorizeHttpRequests(auth -> auth
-                        // 💡 스프링 부트 기본 에러 페이지 포워딩 시 403 마스킹 방지
+                        
                         .requestMatchers("/error").permitAll()
 
-                        // 로그인 / 회원가입
+                        
                         .requestMatchers("/api/v1/auth/**").permitAll()
 
-                        // 숙소 조회
+                        
                         .requestMatchers("/api/v1/accommodations/**").permitAll()
 
-                        // 숙소 조회 API
+                        
                         .requestMatchers("/api/v1/stays/**").permitAll()
 
-                        // 관광지 조회 api
+                        
                         .requestMatchers("/api/v1/tours/**").permitAll()
 
-                        // 비밀번호 찾기 위한 허용 설정
+                        
                         .requestMatchers("/api/v1/members/password/**").permitAll()
 
-                        // 토스페이먼츠 클라이언트 키 조회 허용
+                        
                         .requestMatchers("/api/v1/payments/client-key").permitAll()
 
-                        // 숙소 리뷰 조회 허용
+                        
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/reviews/stays/**").permitAll()
 
-                        // 그 외 요청은 JWT 인증 필요
+                        
                         .anyRequest().authenticated()
                 )
 
-                // JWT 인증 필터 등록
+                
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class
@@ -78,13 +78,13 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 비밀번호 암호화
+    
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // React 개발 서버 CORS 설정
+    
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

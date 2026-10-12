@@ -23,7 +23,6 @@ export function HostApplyBanner() {
                             .join('')
                     )
                 );
-                // 토큰에서 역할 추출
                 setUserRole(decodedPayload.role || null);
             } catch {
                 setUserRole(null);
@@ -32,8 +31,6 @@ export function HostApplyBanner() {
             setUserRole(null);
         }
     }, []);
-
-    // 💡 로그인하지 않았거나, 일반 사용자(ROLE_USER)가 아니면 화면에 아예 그리지 않음
     if (userRole !== 'ROLE_USER') {
         return null;
     }
@@ -66,12 +63,10 @@ export function HostApplyBanner() {
     };
 
     return (
-
-        // 숙소 관리자 신청
         <section style={{ backgroundColor: '#0f333f', padding: '24px 0', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
             <div className="container" style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr auto 1fr', // 💡 좌(비움) : 중앙(문구) : 우(버튼) 3분할
+                gridTemplateColumns: '1fr auto 1fr',
                 alignItems: 'center',
                 gap: '16px'
             }}>

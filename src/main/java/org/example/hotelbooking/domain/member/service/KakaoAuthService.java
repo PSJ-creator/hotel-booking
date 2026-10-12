@@ -39,23 +39,23 @@ public class KakaoAuthService {
 
     @Transactional
     public String kakaoLogin(String code) {
-        // 1. 카카오 서버로 인가 코드를 보내서 '액세스 토큰'을 받아옵니다.
+        
         String accessToken = getAccessToken(code);
 
-        // 2. 받아온 액세스 토큰으로 카카오 유저 정보(고유번호, 닉네임)를 가져옵니다.
+        
         JsonNode userInfo = getUserInfo(accessToken);
         String kakaoId = userInfo.get("id").asText();
         String nickname = userInfo.get("properties").get("nickname").asText();
 
-        // 3. 이메일을 못 받으므로, 카카오 고유번호를 이용해 가짜 이메일을 생성합니다.
+        
         String dummyEmail = "kakao_" + kakaoId + "@hotel.com";
 
-        // 4. DB에 이미 있는 유저인지 확인하고, 없으면 자동 회원가입 시킵니다.
+        
         Member member = memberRepository.findByEmail(dummyEmail).orElseGet(() -> {
             Role userRole = roleRepository.findByRoleName("ROLE_USER")
                     .orElseThrow(() -> new IllegalArgumentException("기본 권한이 없습니다."));
 
-            // 비밀번호는 랜덤 UUID로 생성해서 암호화 (어차피 카카오 로그인은 비밀번호를 안 씁니다)
+            
             Member newMember = Member.builder()
                     .email(dummyEmail)
                     .password(passwordEncoder.encode(UUID.randomUUID().toString()))
@@ -65,11 +65,11 @@ public class KakaoAuthService {
             return memberRepository.save(newMember);
         });
 
-        // 5. 회원가입(또는 로그인)이 완료되었으니, 우리 사이트 전용 JWT 토큰을 발급합니다.
+        
         return jwtTokenProvider.createToken(member.getEmail(), member.getRole().getRoleName(), member.getName());
     }
 
-    // --- 카카오 API 통신 메서드 ---
+    
 
     private String getAccessToken(String code) {
         RestTemplate rt = new RestTemplate();

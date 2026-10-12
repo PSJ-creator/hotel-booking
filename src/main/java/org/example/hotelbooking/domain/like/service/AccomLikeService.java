@@ -37,7 +37,7 @@ public class AccomLikeService {
         return accomLikeRepository.existsByMember_MemberIdAndAccommodation_ContentId(member.getMemberId(), contentId);
     }
 
-    // 찜 토글 로직
+    
     @Transactional
     public boolean toggleLike(String email, String contentId) {
         Member member = memberRepository.findByEmail(email)
@@ -51,14 +51,14 @@ public class AccomLikeService {
 
         if (existingLike.isPresent()) {
             accomLikeRepository.delete(existingLike.get());
-            return false; // 찜 해제
+            return false; 
         } else {
             AccomLike newLike = AccomLike.builder()
                     .member(member)
                     .accommodation(accommodation)
                     .build();
             accomLikeRepository.save(newLike);
-            return true; // 찜 등록
+            return true; 
         }
     }
 

@@ -78,8 +78,6 @@ export function StayDetailPage() {
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [contentId]);
-
-    // 숙소 찜 상태 확인
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token && contentId) {
@@ -91,8 +89,6 @@ export function StayDetailPage() {
                 .catch(() => setIsLiked(false));
         }
     }, [contentId]);
-
-    // 숙소 상세 및 날짜별 잔여 객실 데이터 조회
     useEffect(() => {
         if (!contentId) return;
         axios.get<StayDetail>(`/api/v1/stays/${contentId}`, {
@@ -109,16 +105,12 @@ export function StayDetailPage() {
             })
             .finally(() => setLoading(false));
     }, [contentId, checkIn, checkOut, navigate]);
-
-    // 주변 20km 이내 관광지 최대 9개 조회
     useEffect(() => {
         if (!contentId) return;
         fetchNearbyTours(contentId)
             .then((data) => setNearbyTours(data.slice(0, 9)))
             .catch(() => setNearbyTours([]));
     }, [contentId]);
-
-    // 숙소 리뷰 목록 조회
     useEffect(() => {
         if (!contentId) return;
         fetchStayReviews(contentId)

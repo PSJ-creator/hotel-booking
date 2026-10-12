@@ -17,13 +17,13 @@ public class ReviewController {
 
     private final ReviewService reviewService;
 
-    // 1. 숙소별 리뷰 목록 조회 (누구나 조회 가능)
+    
     @GetMapping("/stays/{contentId}")
     public ResponseEntity<List<ReviewDto.Response>> getStayReviews(@PathVariable String contentId) {
         return ResponseEntity.ok(reviewService.getReviewsByStay(contentId));
     }
 
-    // 2. 고객 리뷰 등록
+    
     @PostMapping
     public ResponseEntity<?> createReview(
             @AuthenticationPrincipal String email,
@@ -37,13 +37,13 @@ public class ReviewController {
         }
     }
 
-    // 3. 숙소 관리자(호스트) 내 숙소 전체 리뷰 조회
+    
     @GetMapping("/host")
     public ResponseEntity<List<ReviewDto.Response>> getHostReviews(@AuthenticationPrincipal String email) {
         return ResponseEntity.ok(reviewService.getManageReviews(email));
     }
 
-    // 4. 숙소 관리자 답글 등록/수정
+    
     @PostMapping("/{reviewId}/reply")
     public ResponseEntity<?> saveReply(
             @PathVariable Long reviewId,
@@ -58,7 +58,7 @@ public class ReviewController {
         }
     }
 
-    // 5. 숙소 관리자 답글 삭제
+    
     @DeleteMapping("/{reviewId}/reply")
     public ResponseEntity<?> deleteReply(
             @PathVariable Long reviewId,

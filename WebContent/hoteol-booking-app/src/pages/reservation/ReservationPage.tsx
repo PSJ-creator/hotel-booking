@@ -33,8 +33,6 @@ export function ReservationPage() {
     const [checkOutDate, setCheckOutDate] = useState(roomState?.checkOut || tomorrowStr);
     const [guestName, setGuestName] = useState('');
     const [phone, setPhone] = useState('');
-
-    // 토스페이먼츠 위젯 상태 관리
     const paymentWidgetRef = useRef<Awaited<ReturnType<typeof loadPaymentWidget>> | null>(null);
     const paymentMethodsWidgetRef = useRef<any>(null);
 
@@ -78,8 +76,6 @@ export function ReservationPage() {
         if (!roomState?.pricePerNight || nights <= 0) return 0;
         return roomState.pricePerNight * nights;
     }, [roomState, nights]);
-
-    // 토스 결제 위젯 렌더링 로직
     useEffect(() => {
         (async () => {
             try {
@@ -110,16 +106,12 @@ export function ReservationPage() {
             }
         })();
     }, []);
-
-    // 결제 금액이 바뀔 때 위젯 업데이트
     useEffect(() => {
         const paymentMethodsWidget = paymentMethodsWidgetRef.current;
         if (paymentMethodsWidget) {
             paymentMethodsWidget.updateAmount(totalPrice);
         }
     }, [totalPrice]);
-
-    // 결제 요청 로직
     const handlePaymentRequest = async (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
 

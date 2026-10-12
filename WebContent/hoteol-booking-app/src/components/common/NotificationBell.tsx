@@ -18,8 +18,6 @@ export function NotificationBell({ userRole, isLoggedIn }: NotificationBellProps
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [isNotiOpen, setIsNotiOpen] = useState(false);
     const notiRef = useRef<HTMLDivElement>(null);
-
-    // 알림 목록 조회 (ROLE_HOST 및 ROLE_ADMIN 전용)
     useEffect(() => {
         if (isLoggedIn && (userRole === 'ROLE_HOST' || userRole === 'ROLE_ADMIN')) {
             const token = localStorage.getItem('accessToken');
@@ -35,8 +33,6 @@ export function NotificationBell({ userRole, isLoggedIn }: NotificationBellProps
                 .catch(() => setNotifications([]));
         }
     }, [isLoggedIn, userRole]);
-
-    // 알림창 바깥 클릭 시 닫기
     useEffect(() => {
         const handleClickOutsideNoti = (event: MouseEvent) => {
             if (notiRef.current && !notiRef.current.contains(event.target as Node)) {
@@ -46,8 +42,6 @@ export function NotificationBell({ userRole, isLoggedIn }: NotificationBellProps
         document.addEventListener('mousedown', handleClickOutsideNoti);
         return () => document.removeEventListener('mousedown', handleClickOutsideNoti);
     }, []);
-
-    // X 버튼 클릭 시 로컬 삭제 처리
     const handleDeleteNoti = (id: string) => {
         const dismissed: string[] = JSON.parse(localStorage.getItem('dismissedNotiIds') || '[]');
         if (!dismissed.includes(id)) {
@@ -56,8 +50,6 @@ export function NotificationBell({ userRole, isLoggedIn }: NotificationBellProps
         }
         setNotifications((prev) => prev.filter((item) => item.id !== id));
     };
-
-    // 호스트나 관리자가 아니면 아무것도 렌더링하지 않음
     if (!isLoggedIn || (userRole !== 'ROLE_HOST' && userRole !== 'ROLE_ADMIN')) {
         return null;
     }

@@ -32,22 +32,22 @@ public class ReservationService {
 
     @Transactional
     public void createReservation(Long memberId, Long roomId, LocalDate checkIn, LocalDate checkOut, Integer totalPrice) {
-        // 1. 체크인 ~ 체크아웃 전날(-1일)까지의 재고 조회
+        
         List<RoomInventory> inventories = roomInventoryRepository
                 .findInventoriesForReservation(roomId, checkIn, checkOut.minusDays(1));
 
-        // 2. 요청한 숙박 일수와 DB에 세팅된 재고 일수가 일치하는지 검증
+        
         long days = java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut);
         if (inventories.size() != days) {
             throw new IllegalArgumentException("예약할 수 없는 날짜가 포함되어 있습니다.");
         }
 
-        // 3. 재고 차감 (Dirty Checking으로 자동 UPDATE 쿼리 발생)
+        
         for (RoomInventory inventory : inventories) {
             inventory.decreaseCount(1);
         }
 
-        // 4. 예약 정보 저장
+        
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
         Room room = roomRepository.findById(roomId)
@@ -64,7 +64,7 @@ public class ReservationService {
 
         Reservation savedReservation = reservationRepository.save(reservation);
 
-        // 💡 5. 예약 확정 안내 이메일 비동기 발송
+        
         Accommodation accom = room.getAccommodation();
         mailService.sendReservationConfirmation(
                 member.getEmail(),
@@ -82,10 +82,10 @@ public class ReservationService {
                 totalPrice
         );
     }
-    // 기존 createReservation 아래에 추가
+    
     @Transactional
     public void cancelReservation(Long reservationId, Long requesterMemberId) {
-        // 1. 예약 정보 조회
+        
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 예약입니다."));
 
@@ -96,15 +96,15 @@ public class ReservationService {
         boolean isGuest = guestMemberId.equals(requesterMemberId);
         boolean isHostOwner = hostMemberId != null && hostMemberId.equals(requesterMemberId);
 
-        // 2. 본인의 예약인지 검증 및 취소, 숙소 관리자 예약 취소
+        
         if (!isGuest && !isHostOwner) {
             throw new IllegalArgumentException("예약자 본인 또는 해당 숙소의 관리자만 예약을 취소할 수 있습니다.");
         }
 
-        // 3. 예약 상태 취소로 변경 (Dirty Checking)
+        
         reservation.cancel();
 
-        // 4. 재고 복구
+        
         List<RoomInventory> inventories = roomInventoryRepository.findInventoriesForReservation(
                 reservation.getRoom().getRoomId(),
                 reservation.getCheckInDate(),
@@ -116,7 +116,7 @@ public class ReservationService {
         }
     }
 
-    // 내 예약 목록 조회
+    
     @Transactional(readOnly = true)
     public List<ReservationDto.MyReservationResponse> getMyReservations(String email) {
         Member member = memberRepository.findByEmail(email)
@@ -133,7 +133,7 @@ public class ReservationService {
                 .toList();
     }
 
-    // 💡 숙소 관리자(호스트)용 내 숙소에 접수된 예약 목록 조회
+    
     @Transactional(readOnly = true)
     public List<ReservationDto.HostReservationResponse> getHostReservations(String email) {
         Member host = memberRepository.findByEmail(email)

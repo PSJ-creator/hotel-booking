@@ -19,7 +19,6 @@ export function LoginPage() {
 
         try {
             const data = await requestLogin({ email, password });
-            // JWT 토큰 저장
             localStorage.setItem('accessToken', data.token);
             alert('로그인되었습니다!');
             navigate('/');

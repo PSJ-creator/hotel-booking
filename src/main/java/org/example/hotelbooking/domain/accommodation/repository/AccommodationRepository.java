@@ -30,7 +30,7 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
             "       SELECT 1 FROM Room r " +
             "       WHERE r.accommodation = a " +
             "         AND CAST(COALESCE(r.roomMaxCount, '0') AS integer) >= :guests)) " +
-            // 💡 날짜가 없는 전체 조회일 때는 통과, 날짜가 들어왔을 때는 :stayDays > 0 조건과 일자별 잔여 재고를 엄격히 검증
+            
             "  AND (:stayDays = 0L OR EXISTS (" +
             "           SELECT 1 FROM Room r " +
             "           WHERE r.accommodation = a " +
@@ -47,25 +47,25 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, St
             @Param("checkIn") LocalDate checkIn,
             @Param("checkOut") LocalDate checkOut,
             @Param("stayDays") Long stayDays,
-            @Param("guests") Integer guests // 💡 [추가]
+            @Param("guests") Integer guests 
     );
 
-    // 숙소 생성시 시퀀스 생성
+    
     @Query(value = "SELECT SEQ_HOST_ACCOM.NEXTVAL FROM DUAL", nativeQuery = true)
     Long getNextHostAccomSeq();
 
-    // 호스트가 등록한 숙소 찾아오는 jpa쿼리
+    
     List<Accommodation> findByHost_Email(String email);
 
-    // 숙소 관리자의 숙소 보유 여부 확인
+    
     boolean existsByHost_MemberIdAndApprovalStatus(Long memberId, org.example.hotelbooking.domain.accommodation.entity.AccommodationStatus approvalStatus);
 
-    // 특정 호스트의 반려된 숙소 목록 조회 (반려 알림용)
+    
     List<Accommodation> findByHost_MemberIdAndApprovalStatus(Long memberId, AccommodationStatus approvalStatus);
 
-    // 총괄 관리자용: 승인 대기(PENDING) 상태 숙소 목록 조회 (심사 알림용)
+    
     List<Accommodation> findByApprovalStatusOrderByCreatedAtDesc(AccommodationStatus approvalStatus);
 
-    // pending 상태인 숙소 목록 가져오는 메서드
+    
     List<Accommodation> findByApprovalStatus(AccommodationStatus approvalStatus);
 }

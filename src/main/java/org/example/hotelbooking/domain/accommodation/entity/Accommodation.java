@@ -63,7 +63,7 @@ public class Accommodation {
     @Column(name = "MAP_Y", length = 50)
     private String mapY;
 
-    // 기존 APPROVAL_STATUS 컬럼을 Enum(PENDING, APPROVED, REJECTED)으로 매핑
+    
     @Enumerated(EnumType.STRING)
     @Column(name = "APPROVAL_STATUS", length = 20, nullable = false)
     private AccommodationStatus approvalStatus;
@@ -86,7 +86,7 @@ public class Accommodation {
         }
     }
 
-    // 관리자 승인/반려 편의 메서드
+    
     public void approve() {
         this.approvalStatus = AccommodationStatus.APPROVED;
         this.rejectReason = null;
@@ -125,7 +125,7 @@ public class Accommodation {
         this.rejectReason = rejectReason;
     }
 
-    // 💡 호스트의 숙소 정보 수정 편의 메서드 (Accommodation.java 내부에 추가)
+    
     public void updateDetails(String title, String lodgingType, String tel, String zipcode,
                               String addr, String checkinTime, String checkoutTime, String roomCount,
                               String roomType, String parking, String subFacility, String overview,

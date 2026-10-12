@@ -23,7 +23,7 @@ public class ReviewService {
     private final ReservationRepository reservationRepository;
     private final MemberRepository memberRepository;
 
-    // 1. 특정 숙소의 전체 리뷰 조회 (숙소 상세페이지용)
+    
     public List<ReviewDto.Response> getReviewsByStay(String contentId) {
         return reviewRepository.findByAccommodation_ContentIdOrderByCreatedAtDesc(contentId)
                 .stream()
@@ -31,7 +31,7 @@ public class ReviewService {
                 .toList();
     }
 
-    // 2. 고객 리뷰 작성
+    
     @Transactional
     public void createReview(String email, ReviewDto.CreateRequest request) {
         Member member = memberRepository.findByEmail(email)
@@ -65,7 +65,7 @@ public class ReviewService {
         reviewRepository.save(review);
     }
 
-    // 3. 숙소 관리자(HOST) 또는 총괄 관리자(ADMIN)용 리뷰 목록 조회
+    
     public List<ReviewDto.Response> getManageReviews(String email) {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
@@ -80,7 +80,7 @@ public class ReviewService {
                 .toList();
     }
 
-    // 4. 답글 등록 및 수정
+    
     @Transactional
     public void saveReply(String email, Long reviewId, String replyContent) {
         if (replyContent == null || replyContent.isBlank()) {
@@ -91,7 +91,7 @@ public class ReviewService {
         review.updateReply(replyContent.trim());
     }
 
-    // 5. 답글 삭제
+    
     @Transactional
     public void deleteReply(String email, Long reviewId) {
         Review review = getAuthorizedReview(email, reviewId);

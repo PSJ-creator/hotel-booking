@@ -1,4 +1,4 @@
-package org.example.hotelbooking.domain.member.controller; // 패키지 경로는 본인 프로젝트에 맞게 수정하세요.
+package org.example.hotelbooking.domain.member.controller; 
 
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbooking.domain.member.dto.AuthDto;
@@ -17,7 +17,7 @@ public class MemberController {
 
     private final MemberService memberService;
 
-    // 💡 1. 이메일 인증 코드 발송 API
+    
     @PostMapping("/password/code")
     public ResponseEntity<String> sendResetCode(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -26,7 +26,7 @@ public class MemberController {
 
         return ResponseEntity.ok("이메일로 인증 코드가 발송되었습니다.");
     }
-    // 💡 2. 인증 코드 검증 API (프론트엔드에서 코드 입력 후 확인 버튼 누를 때)
+    
     @PostMapping("/password/verify")
     public ResponseEntity<String> verifyResetCode(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -37,7 +37,7 @@ public class MemberController {
         return ResponseEntity.ok("이메일 인증이 완료되었습니다. 비밀번호 변경 화면으로 이동합니다.");
     }
 
-    // 💡 3. 새 비밀번호 재설정 API (프론트엔드에서 새 비밀번호 입력 후 완료 버튼 누를 때)
+    
     @PostMapping("/password/reset")
     public ResponseEntity<String> resetPassword(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -48,13 +48,13 @@ public class MemberController {
         return ResponseEntity.ok("비밀번호가 성공적으로 변경되었습니다.");
     }
 
-    // 💡 내 정보 조회
+    
     @GetMapping("/me")
     public ResponseEntity<MemberDto.Response> getMyProfile(@AuthenticationPrincipal String email) {
         return ResponseEntity.ok(memberService.getMyProfile(email));
     }
 
-    // 💡 회원정보 수정
+    
     @PutMapping("/me")
     public ResponseEntity<AuthDto.TokenResponse> updateProfile(
             @AuthenticationPrincipal String email,
@@ -64,7 +64,7 @@ public class MemberController {
         return ResponseEntity.ok(new AuthDto.TokenResponse(newToken));
     }
 
-    // 💡 숙소 관리자 탈퇴 (보유 숙소/예약 존재 시 400 에러와 사유 메시지 반환)
+    
     @PatchMapping("/me/downgrade-host")
     public ResponseEntity<?> downgradeHost(@AuthenticationPrincipal String email) {
         try {
@@ -75,7 +75,7 @@ public class MemberController {
         }
     }
 
-    // 💡 회원 탈퇴 API
+    
     @DeleteMapping("/me")
     public ResponseEntity<?> withdrawMember(@AuthenticationPrincipal String email) {
         try {

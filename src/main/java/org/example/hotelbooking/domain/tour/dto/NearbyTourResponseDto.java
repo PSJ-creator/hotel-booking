@@ -9,6 +9,6 @@ public class NearbyTourResponseDto {
     private String contentId;
     private String title;
     private String firstImage;
-    // 숙소와 관광지간의 거리 반환
+    
     private double distanceKm;
 }

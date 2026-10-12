@@ -68,7 +68,7 @@ public class StayDetailResponseDto {
                 .mapX(a.getMapX())
                 .mapY(a.getMapY())
                 .hostName(a.getHost() != null ? a.getHost().getName() : "제주야호 파트너")
-                // 💡 2. 호스트가 존재하면 MEMBER 테이블의 businessNo 추출, 없으면 기본값 반환
+                
                 .businessNo(a.getHost() != null && a.getHost().getBusinessNo() != null
                         ? a.getHost().getBusinessNo()
                         : "등록된 사업자번호 없음")

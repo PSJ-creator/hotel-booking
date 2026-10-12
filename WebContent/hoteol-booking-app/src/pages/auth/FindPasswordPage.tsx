@@ -6,8 +6,6 @@ import { Footer } from '../../components/common/Footer.tsx';
 
 export function FindPasswordPage() {
     const navigate = useNavigate();
-
-    // 진행 단계 (1: 이메일 전송, 2: 인증코드 확인, 3: 새 비밀번호 설정)
     const [step, setStep] = useState<1 | 2 | 3>(1);
 
     const [email, setEmail] = useState('');
@@ -18,8 +16,6 @@ export function FindPasswordPage() {
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-
-    // 3분(180초) 타이머 관리
     const [timeLeft, setTimeLeft] = useState(180);
 
     useEffect(() => {
@@ -31,15 +27,11 @@ export function FindPasswordPage() {
         }
         return () => clearInterval(timer);
     }, [step, timeLeft]);
-
-    // 초를 MM:SS 형식으로 변환
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
         const s = seconds % 60;
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
-
-    // 1단계: 인증코드 발송
     const handleSendCode = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMessage('');
@@ -57,8 +49,6 @@ export function FindPasswordPage() {
             setLoading(false);
         }
     };
-
-    // 2단계: 인증코드 검증
     const handleVerifyCode = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMessage('');
@@ -81,8 +71,6 @@ export function FindPasswordPage() {
             setLoading(false);
         }
     };
-
-    // 3단계: 비밀번호 재설정
     const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMessage('');

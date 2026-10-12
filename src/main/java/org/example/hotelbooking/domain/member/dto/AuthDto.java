@@ -9,7 +9,7 @@ public class AuthDto {
         private String email;
         private String password;
         private String name;
-        private String businessNo; // 사업자번호 (일반 유저는 null)
+        private String businessNo; 
     }
 
     @Getter
@@ -27,7 +27,7 @@ public class AuthDto {
         }
     }
 
-    // 기존 유저 숙소관리자 신청을 위한 사업자번호 get 추가
+    
     @Getter
     public static class HostApplyRequest {
         private String businessNo;

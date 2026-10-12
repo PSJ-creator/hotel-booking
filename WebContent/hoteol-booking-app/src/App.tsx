@@ -1,35 +1,21 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import './App.css';
-
-// 1. 메인 홈
 import { HomePage } from "./pages/HomePage";
-
-// 2. 인증/회원 (auth)
 import { LoginPage } from "./pages/auth/LoginPage";
 import { SignupPage } from "./pages/auth/SignupPage";
 import { FindPasswordPage } from "./pages/auth/FindPasswordPage";
 import { ProfileEditPage } from "./pages/auth/ProfileEditPage";
 import { KakaoCallback } from "./pages/auth/KakaoCallback";
-
-// 3. 숙소 (stay)
 import { StayDetailPage } from "./pages/stay/StayDetailPage";
 import { WishlistPage } from "./pages/stay/WishlistPage";
-
-// 4. 관광지 (tour)
 import { TourDetailPage } from "./pages/tour/TourDetailPage";
 import { TourWishlistPage } from "./pages/tour/TourWishlistPage";
-
-// 5. 예약/결제 (reservation)
 import { ReservationPage } from "./pages/reservation/ReservationPage";
 import { PaymentSuccessPage } from "./pages/reservation/PaymentSuccessPage";
 import { MyReservationsPage } from "./pages/reservation/MyReservationsPage";
-
-// 6. 호스트 파트너 센터 (host)
 import { HostAccommodationPage } from "./pages/host/HostAccommodationPage";
 import { HostReservationsPage } from "./pages/host/HostReservationsPage";
 import { HostReviewsPage } from "./pages/host/HostReviewsPage";
-
-// 7. 총괄 관리자 센터 (admin)
 import { AdminAccommodationsPage } from "./pages/admin/AdminAccommodationsPage";
 
 function App() {

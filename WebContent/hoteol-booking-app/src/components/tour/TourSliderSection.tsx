@@ -14,13 +14,13 @@ export interface TourSliderItem {
     title: string;
     firstImage?: string;
     addr1?: string;
-    distanceKm?: number; // 💡 숙소 상세페이지에서는 전달되고, 홈페이지에서는 생략됨
+    distanceKm?: number;
 }
 
 interface TourSliderSectionProps {
     tours: TourSliderItem[];
-    headerRender?: React.ReactNode; // 상단 좌측 제목 영역 커스텀
-    footerRender?: React.ReactNode; // 하단 '더 많은 관광지를 둘러보세요' 버튼 등 커스텀
+    headerRender?: React.ReactNode;
+    footerRender?: React.ReactNode;
     containerStyle?: React.CSSProperties;
 }
 
@@ -36,18 +36,14 @@ export function TourSliderSection({
 
     const VISIBLE_CARDS = 3;
     const CARD_GAP = 16;
-    const displayTours = tours.slice(0, 9); // 최대 9개 노출
+    const displayTours = tours.slice(0, 9);
     const maxSlideIndex = Math.max(0, displayTours.length - VISIBLE_CARDS);
 
     const currentPage = Math.floor(slideIndex / VISIBLE_CARDS) + 1;
     const totalPages = Math.max(1, Math.ceil(displayTours.length / VISIBLE_CARDS));
-
-    // 💡 전달받은 관광지 목록(tours)이 바뀌면 슬라이더를 첫 페이지(0)로 리셋
     useEffect(() => {
         setSlideIndex(0);
     }, [tours]);
-
-    // 로그인한 유저의 관광지 찜 목록 동기화
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (!token) {
@@ -60,8 +56,6 @@ export function TourSliderSection({
             })
             .catch(() => setLikedTourIds(new Set()));
     }, []);
-
-    // 찜(하트) 토글 핸들러
     const handleToggleLike = async (e: React.MouseEvent, contentId: string) => {
         e.stopPropagation();
 
@@ -194,7 +188,6 @@ export function TourSliderSection({
                                     e.currentTarget.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.04)';
                                 }}
                             >
-                                {/* 상단 썸네일 이미지 + 좌측 상단(거리 또는 지역) 뱃지 + 우측 상단 찜 하트 */}
                                 <div
                                     style={{
                                         width: '100%',
@@ -313,7 +306,6 @@ export function TourSliderSection({
                 </div>
             </div>
 
-            {/* 하단 추가 버튼 영역 (홈페이지의 '더 많은 관광지를 둘러보세요' 버튼 등) */}
             {footerRender && (
                 <div style={{ textAlign: 'center', marginTop: '32px' }}>
                     {footerRender}

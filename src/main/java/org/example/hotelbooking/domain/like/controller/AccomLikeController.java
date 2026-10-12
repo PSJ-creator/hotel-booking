@@ -19,7 +19,7 @@ public class AccomLikeController {
 
     private final AccomLikeService accomLikeService;
 
-    // 1. 찜 토글
+    
     @PostMapping("/{contentId}")
     public ResponseEntity<Map<String, Object>> toggleLike(
             @PathVariable String contentId,
@@ -32,7 +32,7 @@ public class AccomLikeController {
         ));
     }
 
-    // 2. 내 위시리스트 조회 (날짜 및 인원 조건 반영)
+    
     @GetMapping("/my")
     public ResponseEntity<List<StayResponseDto>> getMyWishlist(
             @AuthenticationPrincipal String email,
@@ -43,7 +43,7 @@ public class AccomLikeController {
         return ResponseEntity.ok(accomLikeService.getMyWishlist(email, checkIn, checkOut, guests));
     }
 
-    // 3. 특정 숙소 찜 여부 단건 확인
+    
     @GetMapping("/{contentId}/status")
     public ResponseEntity<Boolean> getLikeStatus(
             @PathVariable String contentId,

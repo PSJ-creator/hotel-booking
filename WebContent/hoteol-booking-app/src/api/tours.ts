@@ -29,8 +29,6 @@ export interface TourDetail extends TourSummary {
     parkingFee?: string;
     images: TourImageItem[];
 }
-
-// 숙소 반경 20km 이내 주변 관광지 응답 타입 (NearbyTourResponseDto 매칭)
 export interface NearbyTourItem {
     contentId: string;
     title: string;
@@ -65,8 +63,6 @@ export async function fetchMyTourWishlist(): Promise<TourSummary[]> {
     });
     return res.data;
 }
-
-// 숙소 상세페이지 주변 20km 이내 관광지 조회 (최대 9개)
 export async function fetchNearbyTours(accomContentId: string): Promise<NearbyTourItem[]> {
     const res = await axios.get<NearbyTourItem[]>('/api/v1/tours/nearby', {
         params: { accomId: accomContentId }

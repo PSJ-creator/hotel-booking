@@ -9,20 +9,14 @@ export function PaymentSuccessPage() {
     const navigate = useNavigate();
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [errorMessage, setErrorMessage] = useState('');
-
-    // React strict mode에서 API가 두 번 호출되는 것을 막기 위한 방어 로직
     const isProcessed = useRef(false);
 
     useEffect(() => {
         if (isProcessed.current) return;
         isProcessed.current = true;
-
-        // 1. 토스가 자동으로 넘겨주는 결제 검증 데이터
         const paymentKey = searchParams.get('paymentKey');
         const orderId = searchParams.get('orderId');
         const amount = searchParams.get('amount');
-
-        // 2. 우리가 결제 요청 시 붙여서 보냈던 객실 예약 데이터
         const roomId = searchParams.get('roomId');
         const checkIn = searchParams.get('checkIn');
         const checkOut = searchParams.get('checkOut');
@@ -36,8 +30,6 @@ export function PaymentSuccessPage() {
         const confirmPaymentAndReserve = async () => {
             try {
                 const token = localStorage.getItem('accessToken');
-
-                // 새로운 PaymentConfirmRequest DTO 규격에 맞춤
                 const requestBody = {
                     paymentKey: paymentKey,
                     orderId: orderId,
@@ -46,8 +38,6 @@ export function PaymentSuccessPage() {
                     checkInDate: checkIn,
                     checkOutDate: checkOut,
                 };
-
-                // 💡 임시 예약 API 대신 새로 만든 진짜 결제 검증 API로 전송!
                 await axios.post('/api/v1/payments/confirm', requestBody, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
@@ -57,7 +47,6 @@ export function PaymentSuccessPage() {
             } catch (err: any) {
                 console.error(err);
                 setStatus('error');
-                // 백엔드에서 날려준 에러 메시지(환불 완료 등)를 화면에 표시
                 setErrorMessage(err.response?.data || '결제 및 예약 처리 중 오류가 발생했습니다.');
             }
         };

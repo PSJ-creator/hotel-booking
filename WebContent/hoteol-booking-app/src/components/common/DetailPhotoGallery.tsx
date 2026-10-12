@@ -5,7 +5,7 @@ interface DetailPhotoGalleryProps {
     images: string[];
     emptyText?: string;
     modalTitle?: string;
-    externalPreviewImage?: string | null; // 객실 사진 등 외부에서 클릭한 1장 확대용
+    externalPreviewImage?: string | null;
     onCloseExternalPreview?: () => void;
 }
 

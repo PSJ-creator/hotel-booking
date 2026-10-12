@@ -48,8 +48,6 @@ export function ProfileEditPage() {
             })
             .finally(() => setLoading(false));
     }, [navigate]);
-
-    // 회원정보 수정 제출
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMessage('');
@@ -90,8 +88,6 @@ export function ProfileEditPage() {
             setSaving(false);
         }
     };
-
-    // 숙소 관리자 탈퇴 (일반 유저 전환)
     const handleDowngradeHost = async () => {
         const confirmAction = window.confirm(
             '정말 숙소 관리자 자격을 해지하시겠습니까?\n해지 시 일반 회원으로 전환되며 등록된 숙소 관리 기능을 이용할 수 없습니다.'
@@ -111,8 +107,6 @@ export function ProfileEditPage() {
             alert(err.response?.data?.message || '처리 중 오류가 발생했습니다.');
         }
     };
-
-    // 회원 탈퇴 버튼 클릭 (WITHDRAWN 상태 변경 및 이메일/이름 Unknown 처리)
     const handleWithdraw = async () => {
         const confirmWithdraw = window.confirm(
             '정말 제주 야호 회원을 탈퇴하시겠습니까?\n\n' +

@@ -7,7 +7,7 @@ interface TourMapModalProps {
     isOpen: boolean;
     onClose: () => void;
     tours: TourSummary[];
-    storageKeyPrefix?: string; // 💡 페이지별(홈페이지 vs 위시리스트) 검색어 분리 저장용
+    storageKeyPrefix?: string;
 }
 
 export function TourMapModal({
@@ -18,13 +18,9 @@ export function TourMapModal({
                              }: TourMapModalProps) {
     const keywordStorageKey = `${storageKeyPrefix}_keyword`;
     const viewStorageKey = `${storageKeyPrefix}_view`;
-
-    // 💡 sessionStorage에서 이전 검색어 복원 (상세페이지 갔다가 뒤로가기 해도 그대로 유지됨!)
     const [keyword, setKeyword] = useState<string>(() => {
         return sessionStorage.getItem(keywordStorageKey) || '';
     });
-
-    // 검색어가 바뀔 때마다 sessionStorage에 실시간 저장
     useEffect(() => {
         sessionStorage.setItem(keywordStorageKey, keyword);
     }, [keyword, keywordStorageKey]);
@@ -39,8 +35,6 @@ export function TourMapModal({
             document.body.style.overflow = 'unset';
         };
     }, [isOpen]);
-
-    // 💡 사용자가 직접 X 버튼이나 모달 바깥 배경을 눌러 닫을 때만 검색어와 지도 위치를 초기화
     const handleExplicitClose = () => {
         sessionStorage.removeItem(keywordStorageKey);
         sessionStorage.removeItem(viewStorageKey);

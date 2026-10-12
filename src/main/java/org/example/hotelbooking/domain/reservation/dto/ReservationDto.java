@@ -38,18 +38,18 @@ public class ReservationDto {
         }
     }
 
-    // 💡 내 예약 내역 조회 응답 DTO
+    
     @Getter
     @Builder
     public static class MyReservationResponse {
         private Long reservationId;
-        private String status;           // COMPLETED, CANCELED
+        private String status;           
         private LocalDate checkInDate;
         private LocalDate checkOutDate;
         private Integer totalPrice;
         private LocalDateTime createdAt;
 
-        // 숙소 정보
+        
         private String contentId;
         private String stayTitle;
         private String lodgingType;
@@ -59,13 +59,13 @@ public class ReservationDto {
         private String checkinTime;
         private String checkoutTime;
 
-        // 객실 정보
+        
         private Long roomId;
         private String roomTitle;
         private String roomBaseCount;
         private String roomMaxCount;
 
-        // 리뷰 작성 여부
+        
         private boolean hasReview;
 
         public static MyReservationResponse of(Reservation r, boolean hasReview) {
@@ -96,23 +96,23 @@ public class ReservationDto {
         }
     }
 
-    // 💡 [신규 추가] 숙소 관리자(호스트)용 예약 관리 조회 응답 DTO
+    
     @Getter
     @Builder
     public static class HostReservationResponse {
         private Long reservationId;
-        private String status;           // COMPLETED, CANCELED
+        private String status;           
         private LocalDate checkInDate;
         private LocalDate checkOutDate;
         private Integer totalPrice;
         private LocalDateTime createdAt;
 
-        // 예약자(게스트) 정보
+        
         private Long guestId;
         private String guestName;
         private String guestEmail;
 
-        // 숙소 및 객실 정보
+        
         private String contentId;
         private String stayTitle;
         private String firstImage;

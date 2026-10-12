@@ -36,10 +36,10 @@ public class PaymentController {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
 
-        // 1. 토스페이먼츠 서버로 결제 승인(Confirm) 요청 (돈이 빠져나감)
+        
         tossPaymentService.confirmPayment(request.getPaymentKey(), request.getOrderId(), request.getAmount());
 
-        // 2. 결제가 승인되었으니, 우리 DB에 락을 걸고 객실 예약을 시도합니다.
+        
         try {
             reservationLockFacade.reserveRoomWithLock(
                     member.getMemberId(),
@@ -51,10 +51,10 @@ public class PaymentController {
             return ResponseEntity.ok("결제 및 예약이 성공적으로 완료되었습니다.");
 
         } catch (Exception e) {
-            // 🚨 3. 치명적 예외: 돈은 나갔는데, 그 찰나의 순간에 방이 매진되어 DB 에러가 터졌다면?
+            
             log.error("예약 DB 저장 실패! 유저의 돈을 즉시 환불합니다. 사유: {}", e.getMessage());
 
-            // 보상 트랜잭션: 토스 서버로 즉시 결제 취소 API를 쏴서 전액 환불 조치
+            
             tossPaymentService.cancelPayment(request.getPaymentKey(), "객실 매진으로 인한 자동 환불");
 
             return ResponseEntity.status(HttpStatus.CONFLICT)

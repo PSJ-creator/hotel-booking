@@ -24,7 +24,7 @@ import java.util.Locale;
 public class MailService {
 
     private final JavaMailSender javaMailSender;
-    private final TemplateEngine templateEngine; // 💡 Thymeleaf 템플릿 엔진 주입
+    private final TemplateEngine templateEngine; 
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -39,7 +39,7 @@ public class MailService {
             helper.setTo(toEmail);
             helper.setSubject("[제주 야호] 비밀번호 찾기 인증번호 안내");
 
-            // 💡 템플릿 변수 매핑 및 HTML 렌더링
+            
             Context context = new Context();
             context.setVariable("code", code);
             String htmlContent = templateEngine.process("mail/password-reset", context);
@@ -55,7 +55,7 @@ public class MailService {
         }
     }
 
-    // 💡 2. [신규 추가] 숙소 예약 완료 안내 이메일 발송 (비동기 처리)
+    
     @Async
     public void sendReservationConfirmation(
             String toEmail,
@@ -72,7 +72,7 @@ public class MailService {
             LocalDate checkOutDate,
             Integer totalPrice
     ) {
-        // 카카오 가짜 이메일(@hotel.com)인 경우 실제 발송 생략
+        
         if (toEmail == null || (toEmail.startsWith("kakao_") && toEmail.endsWith("@hotel.com"))) {
             log.info("소셜 로그인 가짜 이메일 계정이므로 예약 확인 메일 발송을 생략합니다: {}", toEmail);
             return;
@@ -105,7 +105,7 @@ public class MailService {
             context.setVariable("nights", nights);
             context.setVariable("totalPriceFormatted", formattedPrice);
 
-            // 💡 Localhost 프론트엔드 바로가기 링크 세팅
+            
             context.setVariable("myReservationsUrl", "http://localhost:5173/my-reservations");
             context.setVariable("stayDetailUrl", "http://localhost:5173/stays/" + contentId);
 
@@ -116,7 +116,7 @@ public class MailService {
             log.info("✅ 예약 확정 이메일 발송 완료 -> 수신자: {}, 예약번호: {}", toEmail, reservationNo);
 
         } catch (Exception e) {
-            // 이메일 발송 실패가 예약 트랜잭션을 롤백시키지 않도록 로그만 기록
+            
             log.error("❌ 예약 확정 이메일 발송 실패 (수신자: {}): {}", toEmail, e.getMessage());
         }
     }

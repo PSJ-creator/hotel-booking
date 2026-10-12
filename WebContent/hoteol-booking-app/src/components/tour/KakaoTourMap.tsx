@@ -14,7 +14,7 @@ interface KakaoTourMapProps {
     mode?: 'search' | 'detail';
     zoomable?: boolean;
     onNavigateDetail?: () => void;
-    storageKey?: string; // 💡 뒤로가기 시 마지막 지도 좌표/줌 레벨 복원용 키
+    storageKey?: string;
 }
 
 export function KakaoTourMap({
@@ -38,8 +38,6 @@ export function KakaoTourMap({
         onNavigateDetailRef.current = onNavigateDetail;
         navigateRef.current = navigate;
     }, [onNavigateDetail, navigate]);
-
-    // 1. 카카오 지도 SDK 동적 로드
     useEffect(() => {
         let isMounted = true;
 
@@ -86,8 +84,6 @@ export function KakaoTourMap({
             isMounted = false;
         };
     }, []);
-
-    // 2. 마커 및 커스텀 오버레이 렌더링
     useEffect(() => {
         if (!isLoaded || !window.kakao || !window.kakao.maps) return;
 
@@ -100,8 +96,6 @@ export function KakaoTourMap({
 
             const isDetailPage = mode === 'detail';
             const isSingleTour = validTours.length === 1;
-
-            // 💡 검색 모드일 때 이전에 저장된 지도 중심/레벨이 있으면 복원
             let savedView: { lat: number; lng: number; level: number } | null = null;
             if (!isDetailPage && storageKey) {
                 try {
@@ -130,8 +124,6 @@ export function KakaoTourMap({
             mapInstanceRef.current = map;
 
             map.setZoomable(zoomable);
-
-            // 지도 이동/확대/축소 시 현재 뷰 상태 저장 (뒤로가기 복원용)
             if (!isDetailPage && storageKey) {
                 const saveMapState = () => {
                     const c = map.getCenter();
@@ -142,8 +134,6 @@ export function KakaoTourMap({
                 };
                 window.kakao.maps.event.addListener(map, 'idle', saveMapState);
             }
-
-            // [케이스 A] 관광지 상세페이지 하단 지도 모드
             if (isDetailPage && validTours.length > 0) {
                 const tour = validTours[0];
                 const marker = new window.kakao.maps.Marker({
@@ -197,7 +187,7 @@ export function KakaoTourMap({
                     content: detailCard,
                     position: centerPosition,
                     yAnchor: 1.3,
-                    zIndex: 9999, // 💡 다른 마커/핀에 절대 가려지지 않도록 최상단 고정
+                    zIndex: 9999,
                 });
 
                 overlay.setMap(map);
@@ -234,8 +224,6 @@ export function KakaoTourMap({
 
                 return;
             }
-
-            // [케이스 B] 관광 지도 모달 모드 (전체 관광지 탐색)
             const clusterer = new window.kakao.maps.MarkerClusterer({
                 map: map,
                 averageCenter: true,
@@ -256,8 +244,6 @@ export function KakaoTourMap({
                     currentActiveMarker = null;
                 }
             };
-
-            // 💡 지도 빈 공간을 클릭하거나 줌 레벨이 변경되어 클러스터가 다시 묶일 때 이전 오버레이가 다른 핀과 겹치지 않게 정리
             window.kakao.maps.event.addListener(map, 'click', closeCurrentOverlay);
             window.kakao.maps.event.addListener(map, 'zoom_start', closeCurrentOverlay);
 
@@ -288,8 +274,6 @@ export function KakaoTourMap({
                     z-index: 9999;
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 `;
-
-                // 오버레이 내부 클릭/휠 이벤트가 지도로 전파되어 가려지는 현상 방지
                 content.onmousedown = (e) => e.stopPropagation();
                 content.onclick = (e) => e.stopPropagation();
 
@@ -324,7 +308,7 @@ export function KakaoTourMap({
                     content: content,
                     position: position,
                     yAnchor: 1.15,
-                    zIndex: 9999, // 💡 다른 마커/클러스터 핀보다 무조건 앞에 띄움!
+                    zIndex: 9999,
                     clickable: true,
                 });
 

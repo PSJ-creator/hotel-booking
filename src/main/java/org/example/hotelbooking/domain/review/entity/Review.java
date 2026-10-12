@@ -53,13 +53,13 @@ public class Review {
         this.createdAt = LocalDateTime.now();
     }
 
-    // 숙소 관리자 답글 등록/수정
+    
     public void updateReply(String reply) {
         this.hostReply = reply;
         this.repliedAt = LocalDateTime.now();
     }
 
-    // 숙소 관리자 답글 삭제
+    
     public void deleteReply() {
         this.hostReply = null;
         this.repliedAt = null;

@@ -29,7 +29,7 @@ public class RoomController {
         return ResponseEntity.ok(response);
     }
 
-    // 💡 1. 특정 숙소의 객실 목록 조회
+    
     @GetMapping("/{contentId}/rooms")
     public ResponseEntity<List<RoomManageDto.Response>> getRoomsByAccommodation(
             @PathVariable String contentId
@@ -37,7 +37,7 @@ public class RoomController {
         return ResponseEntity.ok(roomService.getRoomsByAccommodation(contentId));
     }
 
-    // 💡 2. 새 객실 추가 (HOST 전용)
+    
     @PreAuthorize("hasRole('HOST')")
     @PostMapping("/{contentId}/rooms")
     public ResponseEntity<Long> createRoom(
@@ -49,7 +49,7 @@ public class RoomController {
         return ResponseEntity.ok(roomId);
     }
 
-    // 💡 3. 객실 정보 및 가격 수정 (HOST 전용)
+    
     @PreAuthorize("hasRole('HOST')")
     @PutMapping("/rooms/{roomId}")
     public ResponseEntity<String> updateRoom(
@@ -61,7 +61,7 @@ public class RoomController {
         return ResponseEntity.ok("객실 정보가 수정되었습니다.");
     }
 
-    // 💡 4. 객실 삭제 (HOST 전용)
+    
     @PreAuthorize("hasRole('HOST')")
     @DeleteMapping("/rooms/{roomId}")
     public ResponseEntity<String> deleteRoom(

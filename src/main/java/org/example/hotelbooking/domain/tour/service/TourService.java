@@ -26,7 +26,7 @@ public class TourService {
     private final TourLikeRepository tourLikeRepository;
     private final MemberRepository memberRepository;
 
-    // 1. 전체 관광지 목록 조회 (지도 표시용)
+    
     public List<TourDto.SummaryResponse> getAllTours() {
         return tourAttractionRepository.findAllByOrderByTitleAsc()
                 .stream()
@@ -34,7 +34,7 @@ public class TourService {
                 .toList();
     }
 
-    // 2. 관광지 단건 상세 조회
+    
     public TourDto.DetailResponse getTourDetail(String contentId) {
         TourAttraction tour = tourAttractionRepository.findById(contentId)
                 .orElseThrow(() -> new IllegalArgumentException("관광지 정보를 찾을 수 없습니다. contentId=" + contentId));
@@ -43,7 +43,7 @@ public class TourService {
         return TourDto.DetailResponse.of(tour, images);
     }
 
-    // 3. 관광지 찜 여부 확인
+    
     public boolean isLiked(String email, String contentId) {
         if (email == null || contentId == null) return false;
         Member member = memberRepository.findByEmail(email).orElse(null);
@@ -51,7 +51,7 @@ public class TourService {
         return tourLikeRepository.existsByMember_MemberIdAndTourAttraction_ContentId(member.getMemberId(), contentId);
     }
 
-    // 4. 관광지 찜 토글
+    
     @Transactional
     public boolean toggleTourLike(String email, String contentId) {
         Member member = memberRepository.findByEmail(email)
@@ -75,7 +75,7 @@ public class TourService {
         }
     }
 
-    // 5. 내가 찜한 관광지 목록 조회
+    
     public List<TourDto.SummaryResponse> getMyLikedTours(String email) {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));

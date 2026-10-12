@@ -10,7 +10,6 @@ interface StayMapModalProps {
 }
 
 export function StayMapModal({ isOpen, onClose, stays }: StayMapModalProps) {
-    // 1. 모달 활성화 시 배경 스크롤 방지
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -58,7 +57,7 @@ export function StayMapModal({ isOpen, onClose, stays }: StayMapModalProps) {
                     position: 'relative',
                     boxSizing: 'border-box',
                 }}
-                onClick={(e) => e.stopPropagation()} // 내부 클릭 시 모달 닫힘 방지
+                onClick={(e) => e.stopPropagation()}
             >
                 {/* 닫기 (X) 버튼 */}
                 <button
@@ -95,7 +94,7 @@ export function StayMapModal({ isOpen, onClose, stays }: StayMapModalProps) {
                         justifyContent: 'space-between',
                         alignItems: 'flex-end',
                         marginBottom: '18px',
-                        paddingRight: '48px', // X 버튼과 겹치지 않도록 여백
+                        paddingRight: '48px',
                     }}
                 >
                     <div>

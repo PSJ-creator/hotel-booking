@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-// QAccommodation 임포트 (빨간 줄 뜨면 Build -> Build Project 한 번 눌러주세요)
+
 import static org.example.hotelbooking.domain.accommodation.entity.QAccommodation.accommodation;
 
 @Repository

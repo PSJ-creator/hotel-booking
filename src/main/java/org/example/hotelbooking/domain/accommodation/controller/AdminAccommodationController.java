@@ -18,20 +18,20 @@ public class AdminAccommodationController {
 
     private final AccommodationService accommodationService;
 
-    // 1. 대기 중인 숙소 목록 상세 조회
+    
     @GetMapping("/pending")
     public ResponseEntity<List<AccommodationDto.HostDetailResponse>> getPendingAccommodations() {
         return ResponseEntity.ok(accommodationService.getPendingAccommodations());
     }
 
-    // 2. 숙소 승인
+    
     @PatchMapping("/{contentId}/approve")
     public ResponseEntity<String> approveAccommodation(@PathVariable String contentId) {
         accommodationService.approveAccommodation(contentId);
         return ResponseEntity.ok("숙소 ID " + contentId + "의 승인이 완료되었습니다.");
     }
 
-    // 3. 숙소 반려
+    
     @PatchMapping("/{contentId}/reject")
     public ResponseEntity<String> rejectAccommodation(
             @PathVariable String contentId,

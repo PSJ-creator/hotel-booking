@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DateRangePickerProps {
-    checkIn: string;   // 'YYYY-MM-DD'
-    checkOut: string;  // 'YYYY-MM-DD'
+    checkIn: string;
+    checkOut: string;
     onChange: (checkIn: string, checkOut: string) => void;
 }
 
@@ -11,8 +11,6 @@ export function DateRangePicker({ checkIn, checkOut, onChange }: DateRangePicker
     const [isOpen, setIsOpen] = useState(false);
     const [selectingStart, setSelectingStart] = useState<string | null>(null);
     const [hoverDate, setHoverDate] = useState<string | null>(null);
-
-    // 달력 기준월 (체크인 날짜 기준 또는 오늘 기준)
     const [viewDate, setViewDate] = useState(() => {
         const d = checkIn ? new Date(checkIn) : new Date();
         return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -20,11 +18,7 @@ export function DateRangePicker({ checkIn, checkOut, onChange }: DateRangePicker
 
 
     const pickerRef = useRef<HTMLDivElement>(null);
-
-    // 오늘 날짜 문자열
     const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-
-    // 외부 클릭 시 닫기
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
@@ -35,34 +29,25 @@ export function DateRangePicker({ checkIn, checkOut, onChange }: DateRangePicker
         if (isOpen) document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen]);
-
-    // 이전달 / 다음달 이동
     const handlePrevMonth = () => {
         setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
     };
     const handleNextMonth = () => {
         setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
     };
-
-    // 날짜 클릭 핸들러
     const handleDateClick = (dateStr: string) => {
         if (!selectingStart) {
-            // 첫 번째 클릭: 체크인 설정
             setSelectingStart(dateStr);
         } else {
-            // 두 번째 클릭: 체크아웃 설정
             if (dateStr > selectingStart) {
                 onChange(selectingStart, dateStr);
                 setSelectingStart(null);
                 setIsOpen(false);
             } else {
-                // 이전 날짜를 클릭한 경우 다시 체크인으로 세팅
                 setSelectingStart(dateStr);
             }
         }
     };
-
-    // 박수 계산
     const nights = useMemo(() => {
         if (!checkIn || !checkOut) return 0;
         const s = new Date(checkIn);
@@ -70,10 +55,8 @@ export function DateRangePicker({ checkIn, checkOut, onChange }: DateRangePicker
         const diff = (e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24);
         return diff > 0 ? diff : 0;
     }, [checkIn, checkOut]);
-
-    // 특정 월의 날짜 그리드 생성 헬퍼
     const renderCalendarMonth = (year: number, month: number) => {
-        const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0(일) ~ 6(토)
+        const firstDayOfWeek = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
 
         const activeStart = selectingStart || checkIn;

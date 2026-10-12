@@ -17,7 +17,7 @@ public interface AccomLikeRepository extends JpaRepository<AccomLike, Long> {
 
     List<AccomLike> findByMember_MemberIdOrderByCreatedAtDesc(Long memberId);
 
-    // 💡 날짜가 있으면 재고가 있는 찜 숙소만 필터링, 날짜가 없으면(CAST IS NULL) 전체 찜 숙소 반환
+    
     @Query("SELECT new org.example.hotelbooking.domain.accommodation.dto.StayResponseDto(" +
             "a.contentId, a.host.memberId, a.title, a.lodgingType, a.tel, a.zipcode, a.addr, " +
             "a.checkinTime, a.checkoutTime, a.roomCount, a.roomType, a.parking, a.subFacility, " +
@@ -30,12 +30,12 @@ public interface AccomLikeRepository extends JpaRepository<AccomLike, Long> {
             "FROM AccomLike al " +
             "JOIN al.accommodation a " +
             "WHERE al.member.memberId = :memberId " +
-            // 💡 1. 인원 조건
+            
             "  AND (:guests IS NULL OR :guests <= 0 OR EXISTS (" +
             "       SELECT 1 FROM Room r " +
             "       WHERE r.accommodation = a " +
             "         AND CAST(COALESCE(r.roomMaxCount, '0') AS integer) >= :guests)) " +
-            // 💡 2. 날짜 조건 (:stayDays = 0L 이면 전체 찜 숙소 그대로 반환!)
+            
             "  AND (:stayDays = 0L OR EXISTS (" +
             "       SELECT 1 FROM Room r " +
             "       WHERE r.accommodation = a " +
@@ -54,6 +54,6 @@ public interface AccomLikeRepository extends JpaRepository<AccomLike, Long> {
             @Param("guests") Integer guests
     );
 
-    // 💡 숙소 삭제 시 해당 숙소를 찜한 내역 일괄 삭제
+    
     void deleteByAccommodation_ContentId(String contentId);
 }

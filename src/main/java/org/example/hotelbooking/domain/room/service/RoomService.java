@@ -36,7 +36,7 @@ public class RoomService {
                 .collect(Collectors.toList());
     }
 
-    // 💡 1. 특정 숙소의 객실 목록 조회 (호스트 관리 화면용)
+    
     public List<RoomManageDto.Response> getRoomsByAccommodation(String contentId) {
         List<Room> rooms = roomRepository.findByAccommodation_ContentId(contentId);
         return rooms.stream().map(room -> {
@@ -49,7 +49,7 @@ public class RoomService {
         }).toList();
     }
 
-    // 💡 2. 호스트: 새 객실 추가 (ROOM + ROOM_IMAGE + 향후 90일 ROOM_INVENTORY 자동 생성)
+    
     @Transactional
     public Long createRoom(String email, String contentId, RoomManageDto.SaveRequest request) {
         Accommodation accom = validateHostOwnership(email, contentId);
@@ -65,10 +65,10 @@ public class RoomService {
 
         Room savedRoom = roomRepository.save(room);
 
-        // 객실 이미지 저장
+        
         saveRoomImages(savedRoom, request.getImageUrls());
 
-        // 오늘부터 90일 치 기본 객실 재고(ROOM_INVENTORY) 자동 세팅
+        
         int stock = (request.getInitialStock() != null && request.getInitialStock() > 0)
                 ? request.getInitialStock()
                 : 5;
@@ -86,7 +86,7 @@ public class RoomService {
         return savedRoom.getRoomId();
     }
 
-    // 💡 3. 호스트: 기존 객실 정보 및 가격 수정
+    
     @Transactional
     public void updateRoom(String email, Long roomId, RoomManageDto.SaveRequest request) {
         Room room = roomRepository.findById(roomId)
@@ -102,14 +102,14 @@ public class RoomService {
                 request.getPricePerNight()
         );
 
-        // 이미지 목록이 전달된 경우 기존 이미지 교체
+        
         if (request.getImageUrls() != null) {
             roomImageRepository.deleteByRoom_RoomId(roomId);
             saveRoomImages(room, request.getImageUrls());
         }
     }
 
-    // 💡 4. 호스트: 객실 삭제
+    
     @Transactional
     public void deleteRoom(String email, Long roomId) {
         Room room = roomRepository.findById(roomId)
