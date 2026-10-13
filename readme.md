@@ -66,17 +66,7 @@
 
 > <img width="2048" height="1489" alt="unknown" src="https://github.com/user-attachments/assets/4aabbe46-8036-416b-93a0-e48abe5641bc" />
 
-
-## 💡 Technical Decisions & Troubleshooting
-
-**1. 다중 접속 시 객실 예약 동시성 제어 (초과 예약 방지)**
-- **문제:** 동일한 날짜의 단일 객실에 다수의 게스트가 동시에 결제를 시도할 경우, 초과 예약이 발생할 수 있는 동시성 이슈 식별.
-- **해결:** DB 락(Pessimistic/Optimistic)과 Redis 기반 분산 락을 비교 검토. 숙소 예약 특성상 트래픽이 몰릴 때 DB 커넥션 점유 시간을 최소화하고 데드락을 방지하기 위해 **Redisson을 활용한 분산 락** 도입.
-
-**2. 단일 서버 배포 환경의 한계점과 개선 방향**
-- **현황:** OCI 우분투 단일 인스턴스에서 내장 톰캣으로 정적 파일과 API를 동시 서빙하며, 기존 프로세스 kill 후 재가동하는 자동화 스크립트 적용.
-- **향후 계획:** 배포 시 발생하는 짧은 다운타임을 제거하기 위해 Nginx Reverse Proxy를 도입한 무중단 배포(Blue-Green) 환경으로 고도화 예정.
-> (여기에 ERD 이미지 삽입)
+---
 
 ## 💡 Technical Decisions & Troubleshooting
 
