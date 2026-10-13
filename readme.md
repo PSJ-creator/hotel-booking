@@ -52,6 +52,43 @@
 * **파트너 관리**: 전체 호스트의 운영 객실 및 발생 매출 통합 모니터링.
 
 ---
+## 👥 Team & Role
+
+| 이름 | 포지션 | 담당 업무 | GitHub |
+| :--- | :--- | :--- | :--- |
+| **조문희**<br>(Team Leader) | **Backend Core & DB** | **[Database & Infrastructure]**<br>- Oracle Cloud (OCI) Autonomous Database 연동 및 데이터베이스 스키마(ERD) 설계<br>- Redis(Redisson) 기반 분산 락을 활용한 다중 예약 동시성 제어 및 숙소-관광지 거리 계산 최적화<br>- 숙소 데이터 벌크 삭제(Bulk Delete) 쿼리 성능 개선<br><br>**[Backend & Security]**<br>- 카카오 OAuth2 간편 로그인 및 JWT(Access/Refresh) 기반 인증 시스템 구현<br>- 이메일 인증 기반 비밀번호 재설정 로직 및 시크릿 환경 변수 관리<br>- 호스트 및 예약 관리를 위한 핵심 REST API 설계<br><br>**[AI & Payment 연동]**<br>- Spring AI를 활용한 챗봇 기능 연동<br>- 토스페이먼츠 가상결제 시스템 연동 | [munhee777](https://github.com/munhee777) |
+| **박성진**<br>(DevOps) | **Frontend & CI/CD** | **[Frontend UI/UX & Curation]**<br>- 메인 화면 숙소 리스트 그리드 및 검색 UI 최적화, 권한별 동적 드롭다운 메뉴 구현<br>- 카카오맵 API 연동 및 관광 지도 상태 유지 기능 구현<br>- 관광지 위시리스트(찜) 및 실시간 제주 날씨 연동 API 통합<br><br>**[DevOps & System]**<br>- GitHub Actions 기반 CI/CD 배포 파이프라인(워크플로우) 구축<br>- API 보안 처리 및 봇(Bot) 방지 설정<br>- 숙소 리뷰 작성 및 조회 시스템 연동 | [parksungjin-sudo](https://github.com/parksungjin-sudo) |
+
+---
+
+## 🏗 Architecture & ERD
+> <img width="2400" height="1792" alt="image" src="https://github.com/user-attachments/assets/57a36a6c-73d3-4436-b362-42bf11c70f76" />
+
+> <img width="2048" height="1489" alt="unknown" src="https://github.com/user-attachments/assets/4aabbe46-8036-416b-93a0-e48abe5641bc" />
+
+
+## 💡 Technical Decisions & Troubleshooting
+
+**1. 다중 접속 시 객실 예약 동시성 제어 (초과 예약 방지)**
+- **문제:** 동일한 날짜의 단일 객실에 다수의 게스트가 동시에 결제를 시도할 경우, 초과 예약이 발생할 수 있는 동시성 이슈 식별.
+- **해결:** DB 락(Pessimistic/Optimistic)과 Redis 기반 분산 락을 비교 검토. 숙소 예약 특성상 트래픽이 몰릴 때 DB 커넥션 점유 시간을 최소화하고 데드락을 방지하기 위해 **Redisson을 활용한 분산 락** 도입.
+
+**2. 단일 서버 배포 환경의 한계점과 개선 방향**
+- **현황:** OCI 우분투 단일 인스턴스에서 내장 톰캣으로 정적 파일과 API를 동시 서빙하며, 기존 프로세스 kill 후 재가동하는 자동화 스크립트 적용.
+- **향후 계획:** 배포 시 발생하는 짧은 다운타임을 제거하기 위해 Nginx Reverse Proxy를 도입한 무중단 배포(Blue-Green) 환경으로 고도화 예정.
+> (여기에 ERD 이미지 삽입)
+
+## 💡 Technical Decisions & Troubleshooting
+
+**1. 다중 접속 시 객실 예약 동시성 제어 (초과 예약 방지)**
+- **문제:** 동일한 날짜의 단일 객실에 다수의 게스트가 동시에 결제를 시도할 경우, 초과 예약이 발생할 수 있는 동시성 이슈 식별.
+- **해결:** DB 락(Pessimistic/Optimistic)과 Redis 기반 분산 락을 비교 검토. 숙소 예약 특성상 트래픽이 몰릴 때 DB 커넥션 점유 시간을 최소화하고 데드락을 방지하기 위해 **Redisson을 활용한 분산 락** 도입.
+
+**2. 단일 서버 배포 환경의 한계점과 개선 방향**
+- **현황:** OCI 우분투 단일 인스턴스에서 내장 톰캣으로 정적 파일과 API를 동시 서빙하며, 기존 프로세스 kill 후 재가동하는 자동화 스크립트 적용.
+- **향후 계획:** 배포 시 발생하는 짧은 다운타임을 제거하기 위해 Nginx Reverse Proxy를 도입한 무중단 배포(Blue-Green) 환경으로 고도화 예정.
+
+---
 
 ## 📁 Project Structure
 
