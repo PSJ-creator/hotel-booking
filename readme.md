@@ -57,7 +57,7 @@
 | 이름 | 포지션 | 담당 업무 | GitHub |
 | :--- | :--- | :--- | :--- |
 | **조문희**<br>(Team Leader) | **Backend Core & DB** | **[Database & Infrastructure]**<br>- Oracle Cloud (OCI) Autonomous Database 연동 및 데이터베이스 스키마(ERD) 설계<br>- Redis(Redisson) 기반 분산 락을 활용한 다중 예약 동시성 제어 및 숙소-관광지 거리 계산 최적화<br>- 숙소 데이터 벌크 삭제(Bulk Delete) 쿼리 성능 개선<br><br>**[Backend & Security]**<br>- 카카오 OAuth2 간편 로그인 및 JWT(Access/Refresh) 기반 인증 시스템 구현<br>- 이메일 인증 기반 비밀번호 재설정 로직 및 시크릿 환경 변수 관리<br>- 호스트 및 예약 관리를 위한 핵심 REST API 설계<br><br>**[AI & Payment 연동]**<br>- Spring AI를 활용한 챗봇 기능 연동<br>- 토스페이먼츠 가상결제 시스템 연동 | [munhee777](https://github.com/munhee777) |
-| **박성진**<br>(DevOps) | **Frontend & CI/CD** | **[Frontend UI/UX & Curation]**<br>- 메인 화면 숙소 리스트 그리드 및 검색 UI 최적화, 권한별 동적 드롭다운 메뉴 구현<br>- 카카오맵 API 연동 및 관광 지도 상태 유지 기능 구현<br>- 관광지 위시리스트(찜) 및 실시간 제주 날씨 연동 API 통합<br><br>**[DevOps & System]**<br>- GitHub Actions 기반 CI/CD 배포 파이프라인(워크플로우) 구축<br>- API 보안 처리 및 봇(Bot) 방지 설정<br>- 숙소 리뷰 작성 및 조회 시스템 연동 | [parksungjin-sudo](https://github.com/parksungjin-sudo) |
+| **박성진**<br>(DevOps) | **Frontend & CI/CD** | **[Frontend Core & UI/UX]**<br>- 프로젝트 초기 프론트엔드 아키텍처 설계 및 검색·인원 필터링 UI 최적화<br>- 숙소 상세·예약 신청·내역 조회 핵심 플로우 및 마이페이지(정보 수정·탈퇴) 구현<br>- 사용자 권한 및 호스트 숙소 보유 여부에 따른 동적 라우팅·드롭다운 메뉴 구현<br><br>**[Service & External API]**<br>- 카카오맵 API 연동 및 페이지 이동 간 관광 지도 상태(State) 유지 구현<br>- 숙소·관광지 위시리스트(찜), 리뷰 시스템 및 실시간 제주 날씨 API 통합<br>- 관리자(숙소/총괄) 실시간 알림 기능 및 예약 확정 안내 이메일 템플릿·발송 구현<br><br>**[DevOps & Security]**<br>- GitHub Actions 기반 CI/CD 자동화 배포 파이프라인 구축 및 브랜치 형상 관리<br>- 프론트엔드 민감정보 환경변수 분리 및 API 봇(Bot) 방지 보안 설정 | [parksungjin-sudo](https://github.com/PSJ-creator) |
 
 ---
 
